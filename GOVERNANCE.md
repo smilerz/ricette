@@ -31,15 +31,17 @@ CODE_OF_CONDUCT.md
 
 docs/
   adr/
+    (0001-0018 + 0019; see docs/adr/ for the current index)
 
   architecture/
     principles.md
+    foundation-0-design-baseline.md   (immutable historical source, see file header)
 
   security/
     threat-model.md
 
   development/
-    setup.md
+    setup.md            -- DEFERRED: nothing to document until Laravel/Svelte exist (Phase 16)
     testing.md
     style.md
     dependencies.md
@@ -49,9 +51,13 @@ docs/
     ai-development.md
 
   product/
-    principles.md
-    glossary.md
+    principles.md        -- DEFERRED: product-design work, out of Foundation 0 scope
+    glossary.md           -- DEFERRED: same
 ```
+
+The tree above reflects actual repository state, not aspiration — entries
+marked DEFERRED do not exist yet and should not be assumed present. See
+`IMPLEMENTATION_PLAN.md` for current status of every Foundation 0 item.
 
 Governance documents are source-controlled, pull-request reviewed, and
 protected like code. Once the repository is on GitHub, sensitive paths
@@ -106,8 +112,11 @@ applies the same principle to AI coding agents specifically.
 
 AI coding agents operate under `AGENTS.md`, which is the canonical
 operational instruction set for development agents. `AGENTS.md` is itself a
-protected governance file. See ADR-0010 (AI-Driven Development Model) and
-ADR-0011 (AI Code Review Model) for the rationale and mechanics.
+protected governance file. See ADR-0010 (AI-Driven Development Model) for
+agent authority and trust boundaries; ADR-0011 (Local Independent AI
+Development Review) for the maintainer's personal review harness; and
+ADR-0019 (Independent Pull Request Semantic Review) for the
+project-governed reviewer that checks every PR regardless of author.
 
 ## Future multi-repository governance
 

@@ -52,6 +52,9 @@ Per Foundation 0 §12 and ADR-0009:
 
 - `docs/security/threat-model.md` — the living threat model.
 - ADR-0016 — Security Baseline.
-- ADR-0011 — AI Code Review Model (AI-specific security review
-  responsibilities).
+- ADR-0019 — Independent Pull Request Semantic Review (security review
+  responsibilities applied to every PR, regardless of author).
+- ADR-0011 — Local Independent AI Development Review (security
+  consideration during the maintainer's own agent-driven development,
+  before a PR even exists).
 - `AGENTS.md` — security rules binding on AI coding agents.

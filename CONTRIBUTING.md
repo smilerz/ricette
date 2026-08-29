@@ -16,7 +16,9 @@ Signed-off-by: Your Name <your.email@example.com>
 ```
 
 Add it with `git commit -s`. Pull requests without sign-off on every commit
-will not be merged; CI enforces this.
+must not be merged. **Current status: no CI exists yet to enforce this
+mechanically** (see `IMPLEMENTATION_PLAN.md`); until the DCO check is
+provisioned, sign-off is verified manually by whoever reviews the PR.
 
 The DCO confirms you have the right to submit your work under this
 project's license. It does **not** give the project unilateral rights to
@@ -89,12 +91,13 @@ human contributors and AI coding agents.
 
 ## Style and static analysis
 
-Style is machine-enforced, not a human-review subject. Run `./bin/format`
-before committing and `./bin/verify` before opening a PR — see
+Style is machine-enforced, not a human-review subject — see
 `docs/development/style.md` for the exact tools (Pint, Prettier, ESLint,
-TypeScript strict mode, svelte-check, PHPStan/Larastan). CI runs the same
-checks; there is no separate "local passes, CI fails" category of problem
-by design.
+TypeScript strict mode, svelte-check, PHPStan/Larastan). Once `./bin/format`
+and `./bin/verify` exist (they do not yet — see `IMPLEMENTATION_PLAN.md`
+Phase 7), run them before committing/opening a PR; CI will run the same
+checks so there is no separate "local passes, CI fails" category of
+problem by design. Until then, run the underlying tools directly.
 
 ## Dependencies
 
@@ -119,7 +122,12 @@ frontend).
   maintainer approval.
 
 AI review is mandatory but non-authoritative — it supplements deterministic
-CI and human review, it does not replace them. See ADR-0010 and ADR-0011.
+CI and human review, it does not replace them. Every PR is reviewed by the
+independent, project-governed reviewer specified in ADR-0019, regardless
+of who or what opened the PR — see ADR-0010 for the general agent-authority
+model. (A separate, personal review harness some contributors may use
+locally before opening a PR, ADR-0011, is not part of this process and has
+no bearing on whether a PR merges.)
 
 ## AI coding agents
 

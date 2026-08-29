@@ -116,21 +116,42 @@ backlog item — build it into new components from the start.
 ./bin/verify   # prove a change is admissible; CI runs the same checks
 ```
 
-Do not invent parallel ad hoc invocations of the underlying tools — add to
-`./bin/verify` as new checks come online (see `IMPLEMENTATION_PLAN.md`
-Phase 7).
+**Current status: neither script exists yet.** They are specified here as
+the canonical commands so that once they exist (see `IMPLEMENTATION_PLAN.md`
+Phase 7), no one — human or agent — invents parallel ad hoc invocations of
+the underlying tools instead. Until then, run the underlying tools
+directly as documented in `docs/development/style.md`,
+`docs/development/testing.md`, etc., and add to `./bin/verify` as each
+check comes online rather than building a separate command.
+
+## Two different senses of "done"
+
+Foundation 0 defines a single Definition of Done for a **mergeable
+contribution** (below) — that has not changed. Separately, ADR-0011
+defines **local task completion** for the maintainer's own coding-agent
+session: an independent local reviewer can approve that an agent's
+immediate task is locally sound and let the agent continue or stop
+working, without the maintainer in the loop. That local `APPROVE` is not
+the Definition of Done below, carries no weight toward whether a PR
+merges, and does not substitute for AI-review-resolved or human-review-
+approved in the checklist that follows. A task can be locally approved
+under ADR-0011 and still receive requested changes from the independent
+PR reviewer (ADR-0019) or from human review — that is expected, not a
+contradiction.
 
 ## Definition of Done
 
-A change is complete only when, as applicable: the requirement is
-implemented; architecture invariants are preserved; security implications
-are evaluated; tests are added (with a failing-before-fix regression test
-for bug fixes); negative paths are covered; static analysis and formatting
-pass; coverage passes (global and changed); SQLite and PostgreSQL tests
-both pass; translations are added; accessibility is considered; user and
-developer documentation are updated; an ADR is updated or added when
-architecture changes; dependencies are justified; `./bin/verify` passes;
-AI review is resolved; human review is approved.
+A change is complete and mergeable only when, as applicable: the
+requirement is implemented; architecture invariants are preserved;
+security implications are evaluated; tests are added (with a
+failing-before-fix regression test for bug fixes); negative paths are
+covered; static analysis and formatting pass; coverage passes (global and
+changed); SQLite and PostgreSQL tests both pass; translations are added;
+accessibility is considered; user and developer documentation are
+updated; an ADR is updated or added when architecture changes;
+dependencies are justified; `./bin/verify` passes; AI review (ADR-0019) is
+resolved; human review is approved. This is the merge bar — it is not
+satisfied by ADR-0011's local reviewer alone.
 
 ## Prohibited shortcuts
 
@@ -161,9 +182,11 @@ correctness.
 
 Every PR gets AI review — mandatory but non-authoritative, supplementing
 deterministic CI and human review, never replacing them. See ADR-0010 (AI-
-driven development model, agent authority and trust boundaries) and
-ADR-0011 (the specific plan-gate/decision-gate/completion-gate review
-mechanics, model roles, and the human's appellate role).
+driven development model, agent authority and trust boundaries); ADR-0011
+(the maintainer's personal plan-gate/decision-gate/completion-gate review
+harness — helps this agent converge, has no bearing on whether a PR
+merges); and ADR-0019 (the project-governed reviewer that checks every PR,
+regardless of author, and cannot be weakened by the PR under review).
 
 ## Rules protecting governance files
 

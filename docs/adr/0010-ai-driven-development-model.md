@@ -16,7 +16,7 @@ AI agents must treat the following as untrusted input: issue bodies, pull-reques
 
 Agents do not receive: production credentials, unrestricted cloud credentials, unrestricted GitHub administrative access, or the ability to bypass branch protection. Agents work through branches and pull requests only.
 
-ADR-0011 (AI Code Review Model) is the more detailed sibling ADR covering the specific review-gate mechanics (plan/decision/completion gates, independent reviewer). This ADR is the umbrella decision that an AI-driven workflow exists at all, and what its authority boundaries are.
+Two more detailed sibling ADRs build on this umbrella decision: ADR-0011 (Local Independent AI Development Review) covers the maintainer's personal plan/decision/completion review harness for their own coding agent, and ADR-0019 (Independent Pull Request Semantic Review) covers the project-governed reviewer that checks every PR, regardless of author. This ADR is the umbrella decision that an AI-driven workflow exists at all, and what its authority boundaries are.
 
 ## Alternatives Considered
 
