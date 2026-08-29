@@ -41,14 +41,14 @@ This step turns the policy from "configuration looks right" into tested enforcem
 
 - [x] Choose temporary generic repo name (§68 "Temporary repository name") — "Ricette (working name)", per `README.md`
 - [x] `git init` — done, local repo exists
-- [ ] Push empty/bootstrap repo to GitHub (§2) — **not done**; no remote configured yet
-- [ ] Set default branch `main` with actual commits on it (§2) — **not done as of this writing**: `main` exists but has zero commits. A repo-level guard blocks direct commit/merge/rebase onto `main`, so all work so far lives on `chore/foundation-0-bootstrap`. Landing it on `main` requires either the maintainer merging it directly, or a GitHub remote + real PR flow (see the two-commit history on that branch)
+- [x] Push bootstrap repo to GitHub (§2) — `github.com/smilerz/ricette` created (initially private, later made public — see legal-check note below), `main` established pointing only at the bootstrap commit (`4f855f8`), `chore/foundation-0-bootstrap` pushed as a real PR (#1) against it. Basic branch protection enabled on `main` (no force-push, no deletion) — required review/required status checks deliberately deferred to Phase 4 (need CI/CODEOWNERS first; enabling them before the maintainer's first PR merge risked a self-lockout).
+- [ ] Set default branch `main` with the reviewed Foundation content merged onto it (§2) — **not done as of this writing**: `main` currently has only the bootstrap commit; the governance/ADR content lives on `chore/foundation-0-bootstrap` pending PR #1 merge.
 - [x] Add root `.gitignore`, `.editorconfig` (§30 "Repository-wide")
 
 ## Phase 1 — Legal
 
 - [x] `LICENSE` — MPL-2.0 text committed
-- [ ] **MPL-2.0 legal sanity check (ADR-0007)** — explicitly still open. Per ADR-0007 this is required "before public release." If the next action is pushing this repository to a public GitHub remote (Phase 0's remaining item), treat this as a **pre-push condition**, not a someday item — do not push publicly before this is done or explicitly waived by the maintainer.
+- [ ] **MPL-2.0 legal sanity check (ADR-0007)** — still open, and the repository is now public without it having been done first. ADR-0007 requires this "before public release" as a pre-push condition; the repo went public anyway on 2026-08-29 by the maintainer's **explicit, direct decision** during the GitHub bootstrap (public visibility was needed to enable GitHub branch protection on this account's plan). This is recorded here as a deliberate waiver of the pre-publication sequencing, not an oversight — the check itself remains genuinely outstanding and should still be completed; it just no longer gates the repo's visibility, since that decision has already been made.
 - [x] `PROVENANCE.md` — independent-implementation policy; explicit prohibited list (source translation, file-by-file ports, schema/migration/fixture/test/asset/doc copying, "inspect old source and recreate" instructions); behavioral requirement-writing example (§8)
 - [x] DCO 1.1 policy text (in `CONTRIBUTING.md`) (§10)
 - [ ] DCO sign-off enforcement (actual CI/GitHub Action) — **not done**; no CI exists yet. `CONTRIBUTING.md` now says this explicitly rather than claiming CI already enforces it.

@@ -33,6 +33,7 @@ MPL-2.0's file-level copyleft is the closest fit to "modifications to the open c
 - Contributors must be comfortable with file-level copyleft obligations when they modify MPL-covered files.
 - Proprietary hosted-only code must live in separate files/services, not mixed into MPL-covered files, to preserve the coexistence property.
 - **This decision is not final until the legal sanity check named in Foundation 0 §9 has been performed.** Treat "Accepted" here as "accepted pending that check," not as a closed question.
+- **That check has not yet been performed, and the repository was made public anyway** on 2026-08-29, by the maintainer's explicit, direct decision during GitHub bootstrap (public visibility was required to enable branch protection on this GitHub account's plan). This is a deliberate waiver of the "before public release" sequencing, recorded here rather than left implicit — the legal check itself remains genuinely outstanding and should still be completed; it no longer blocks visibility, since that decision has already been made.
 
 ## Conditions for Reconsideration
 
