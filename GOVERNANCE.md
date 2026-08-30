@@ -51,8 +51,13 @@ docs/
     ai-development.md
 
   product/
-    principles.md        -- DEFERRED: product-design work, out of Foundation 0 scope
-    glossary.md           -- DEFERRED: same
+    principles.md        -- DRAFT, NOT NORMATIVE: exploratory UX-principles
+                             material captured ahead of Foundation 0's own
+                             Phase 16/17 product-design sequencing (see the
+                             file's own status banner). Not referenced from
+                             AGENTS.md; compliance is not required until the
+                             formal product-design phase promotes it.
+    glossary.md           -- DEFERRED: out of Foundation 0 scope
 ```
 
 The tree above reflects actual repository state, not aspiration — entries
