@@ -197,6 +197,10 @@ a branch — that proposal has no authority until it goes through
 CODEOWNER/maintainer review (see `GOVERNANCE.md`, "Decision authority").
 An agent must never merge its own change to one of these paths, weaken the
 protection on them, or edit them to grant itself broader authority.
+`.claude/**` is currently gitignored (local only, not tracked — see
+`IMPLEMENTATION_PLAN.md`'s "Auto-mode enforcement split" reversal note),
+so CODEOWNER review of it is presently moot in practice; the rule stays
+listed for if that changes.
 
 ## Trust model
 
