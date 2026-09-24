@@ -15,6 +15,44 @@ Phase 16 (§65), after Phase 15's gate audit passes.
 
 ---
 
+## Reconciliation note (2026-09-23)
+
+This plan's checkboxes had drifted from reality in both directions — some items were
+unchecked despite a substantive, matching artifact already existing (stale
+bookkeeping); the auto-mode verification checklist and the ADR-0011 reviewer-mechanism
+pivot existed on unmerged branches never folded into this file. This pass reconciles
+both: checks off items with real evidence (cited inline), and folds in the
+`feature/auto-mode-verification` and `feature/adr-0011-claude-subagent-reviewer`
+branches, which is why ADR-0011 and the auto-mode section below changed materially in
+this same commit.
+
+**The gate model is also refined here.** The original phase numbering (1–15 before
+Phase 16) reads as a strict linear order, but several items in Phases 6/7/8/9/10/11/14
+are language/application-dependent tooling (PHP/TS linters, Pest/Vitest/Playwright,
+dual-database test execution, a real container build) that cannot meaningfully exist
+before Laravel/Svelte are scaffolded. Treating those as pre-Phase-16 prerequisites
+creates a bootstrap paradox. Every remaining item is now tagged with one of three
+execution gates instead:
+
+- **[A] — required before Phase 16 may begin.** Governance/control-plane mechanisms
+  that can and must exist independently of application code (trusted-`main`
+  governance, DCO enforcement, branch protection, CODEOWNERS, `bin/verify`
+  orchestration, the AI review controls Foundation 0 made mandatory, security/repo
+  controls that don't need app code, and the Phase 15 audit itself).
+- **[B] — required before the first Phase-16 application PR may merge.**
+  Application-dependent tooling whose substrate that PR itself introduces. The PR may
+  install/configure these tools, but cannot merge until every applicable one is wired
+  through `./bin/verify`, runs in CI, and passes. This is a merge condition of the
+  first application PR, not a prerequisite to opening it.
+- **[C] — explicitly deferred**, with a concrete trigger, because the work is
+  unnecessary for safe first application development.
+
+The target is not 109/109 checkboxes. It's a trustworthy control plane operational
+before application development begins, with the application-specific portion of that
+control plane becoming operational as a merge condition of the first application PR.
+
+---
+
 ## Auto-mode enforcement split (tooling note, not a §-numbered item)
 
 Claude Code's auto-mode policy for this repo is split across trust tiers so the repo being worked on cannot edit the rules constraining the work done in it:
@@ -28,28 +66,22 @@ Claude Code's auto-mode policy for this repo is split across trust tiers so the 
 
 **Follow-up**: once Ricette's controls are proven out and the impact on other projects on this machine (WeekFare, Tandoor) has been assessed, revisit whether any of these hard-deny invariants should be promoted to true machine-wide managed policy at `/etc/claude-code/managed-settings.json` — the only tier documented as non-overridable by project/user settings. Not done yet: creating that file needs root and applies to every Claude Code session on the machine, which is a decision to make deliberately rather than as a side effect of Ricette setup.
 
-**Auto-mode control verification (must pass before this portion is considered done, not just configured):** in a Ricette session, demonstrate —
-1. normal autonomous development proceeds without prompting (branch/file edits, tests, local container build, an approved-registry dependency install, a commit, a feature-branch push, `gh pr create`);
-2. each representative hard-denied action is actually blocked when attempted (direct push to `main`, self-merge, bypassing a required check, publishing outside the configured repo, committing a fake secret, a `prod`-named destructive action);
-3. a representative governance-file edit (e.g. `AGENTS.md` or CODEOWNERS) is soft-blocked — flagged conspicuously rather than either silently allowed or hard-blocked;
-4. every configured hook (including `untrusted-content-note.sh`) executes successfully and produces its intended output under the same shell/environment Claude Code actually uses — not just a permissions check.
-   - `untrusted-content-note.sh`: **verified 2026-08-29.** Was failing with `Permission denied` (missing executable bit); fixed by the user directly (`chmod +x`, outside Claude's own tool access per guardrail). Pipe-tested all four cases: `WebFetch` fires with correct JSON, `Bash` containing `gh pr view`/`gh api ...issues|pulls|comments` fires with correct JSON, an unrelated `Bash` command exits 0 silently, an unmatched tool (`Read`) exits 0 silently. Also confirmed firing live inside the actual Claude Code harness (its `additionalContext` was injected automatically during the `gh pr view` test above), not just as a standalone script.
+**Auto-mode control verification — [A], substantially DONE, verified 2026-08-29 against the real repo** (`github.com/smilerz/ricette`, public, `main` protected against force-push/deletion, PR #1 merged):
 
-**Items 1–3: verified 2026-08-29 against the real repo** (`github.com/smilerz/ricette`, public, `main` protected against force-push/deletion, PR #1 merged):
+1. **Ordinary allowed actions — verified.** Branch creation, file edits, commit/push/PR all proceed without blocking. Local container build and an approved-registry dependency install are **not yet applicable** (no Dockerfile/package.json exists prior to Phase 16) — re-verify those two specifically once Phase 16 scaffolding lands.
+2. **Hard-deny actions, each attempted directly — verified, with 3 narrow gaps:**
+   - Direct commit to `main`: **BLOCKED** (two independent layers).
+   - Committing a fake secret: **BLOCKED** (two independent layers).
+   - Publishing outside the configured repo (`gh gist create --public`): **BLOCKED**.
+   - Self-merge: **BLOCKED** (`gh pr merge` against a real open PR refused).
+   - `prod`-named destructive action: **gap** — a generic dangerous-command guard fired before any semantic "prod" classification could be isolated; the action class is covered either way, but this specific test can't confirm the `prod`-naming heuristic is what's doing the work.
+   - Bypassing a required check: **gap, not yet testable** — no required status checks exist on `main` yet (depends on Phase 4/CI). Revisit once those land.
+3. **Soft-deny (governance-file edit)**: edit succeeded without hard-blocking, consistent with "allowed, not hard-blocked." **Gap**: whether it was *visibly conspicuous* to the maintainer (vs. routine) is only visible from the permission-prompt UI, not from tool results — unconfirmed from the agent side.
+4. **Hook execution**: `untrusted-content-note.sh` verified 2026-08-29, all four cases pipe-tested plus one live-fire confirmation.
 
-- **Item 1 (ordinary allowed)**: branch creation (`feature/auto-mode-verification`), file edits, and this very edit/commit/push/PR sequence all proceeded without any block — this section's own update is the demonstration. Local container build and an approved-registry dependency install are **not yet applicable** — no Dockerfile/package.json exists prior to Phase 16 scaffolding; re-verify those two specifically once that scaffolding lands.
-- **Item 2 (hard-deny), each attempted directly, not assumed**:
-  - *Direct commit to main*: **BLOCKED**, two layers — the generic "use /commit skill" guard fired first; going through the proper commit-authorization flow while still targeting `main` was then independently refused by the auto-mode classifier itself (it recognized the intent — authorizing a direct commit to protected `main` — and refused the authorization step, not just the git command).
-  - *Committing a fake secret*: **BLOCKED**, two layers — a `.env` containing fake AWS/OpenAI-shaped credentials was already excluded by `.gitignore` (never became stageable via normal `git add`); force-adding it with `git add -f` was independently blocked by the classifier.
-  - *Publishing outside the configured repo*: **BLOCKED** — `gh gist create --public` on a trivial test file was refused by the classifier before it ran.
-  - *`prod`-named destructive action*: **inconclusive in isolation** — `rm -rf` against a `/tmp/prod-db-backup` path was blocked, but a control `rm -rf` against a non-`prod`-named `/tmp` path was *also* blocked by a generic dangerous-shell-command guard that fires before any semantic "prod" classification would apply. The action class is covered end-to-end either way, but this specific test can't confirm the `prod`-naming heuristic is what's doing the work versus the generic guard alone.
-  - *Self-merge*: **BLOCKED** — PR #2 was opened from this very branch (the item-1 demonstration above), and `gh pr merge --merge` against it was refused by the classifier. PR #2 was left open afterward rather than self-merged, per this same policy.
-  - *Bypassing a required check*: **not yet meaningfully testable** — no required status checks are configured on `main` yet (Phase 4 depends on CI existing). Revisit once Phase 4/CI land.
-- **Item 3 (soft-deny)**: an edit to `AGENTS.md` (a one-line HTML comment, reverted immediately after) succeeded without an error — consistent with "allowed, not hard-blocked." Whether it was *flagged conspicuously* to the maintainer specifically (as opposed to routine) is something only visible from the maintainer's own permission-prompt UI, not from the agent's tool results — **unconfirmed from this side; ask the maintainer whether a distinct/conspicuous prompt appeared for that edit.**
+**Remaining for full closure (small, tracked here not as a new phase item)**: re-run gap 2's `prod`-naming-specificity test and gap 3's conspicuousness question once meaningful to isolate; re-verify item 1's container/dependency-install cases once Phase 16 lands; confirm required-check bypass is blocked once Phase 4/CI exist.
 
-**Overall**: this checklist is substantially verified against the real repo, not just configured. Three narrow gaps remain, each already called out above rather than glossed over: whether the `prod`-naming heuristic specifically (vs. the generic dangerous-command guard) is doing the work; whether soft-deny is visibly conspicuous to the maintainer, not just non-blocking; and required-check bypass, which isn't meaningfully testable until Phase 4/CI exist.
-
-This step turns the policy from "configuration looks right" into tested enforcement, and should be run again after any change to either settings file or to the eventual managed-policy tier.
+This step should be run again after any change to either settings file or the eventual managed-policy tier.
 
 ---
 
@@ -57,156 +89,156 @@ This step turns the policy from "configuration looks right" into tested enforcem
 
 - [x] Choose temporary generic repo name (§68 "Temporary repository name") — "Ricette (working name)", per `README.md`
 - [x] `git init` — done, local repo exists
-- [x] Push bootstrap repo to GitHub (§2) — `github.com/smilerz/ricette` created (initially private, later made public — see legal-check note below), `main` established pointing only at the bootstrap commit (`4f855f8`), `chore/foundation-0-bootstrap` pushed as a real PR (#1) against it. Basic branch protection enabled on `main` (no force-push, no deletion) — required review/required status checks deliberately deferred to Phase 4 (need CI/CODEOWNERS first; enabling them before the maintainer's first PR merge risked a self-lockout).
-- [ ] Set default branch `main` with the reviewed Foundation content merged onto it (§2) — **not done as of this writing**: `main` currently has only the bootstrap commit; the governance/ADR content lives on `chore/foundation-0-bootstrap` pending PR #1 merge.
+- [x] Push bootstrap repo to GitHub (§2) — `github.com/smilerz/ricette` created (initially private, later made public — see legal-check note below), `main` established, `chore/foundation-0-bootstrap` pushed as PR #1. Basic branch protection enabled on `main` (no force-push, no deletion).
+- [x] **[A] Set default branch `main` with the reviewed Foundation content merged onto it (§2) — DONE.** PR #1 merged 2026-08-29 (`5086f74`). *(This item's own note previously said "not done" — that was itself stale; verified directly against `git log main`, not assumed from prior notes.)* Three further branches with real Foundation-0-relevant content existed unmerged as of this reconciliation and are folded into this same pass: `feature/auto-mode-verification` (PR #2, auto-mode verification results — merged into this branch above), `feature/adr-0011-claude-subagent-reviewer` (not yet a PR — ADR-0011 reviewer-mechanism pivot, merged into this branch above). `feature/product-principles-draft` (PR #3) is unrelated product-design work, not Foundation-0 governance — left untouched, not part of this gate.
 - [x] Add root `.gitignore`, `.editorconfig` (§30 "Repository-wide")
 
 ## Phase 1 — Legal
 
 - [x] `LICENSE` — MPL-2.0 text committed
-- [ ] **MPL-2.0 legal sanity check (ADR-0007)** — still open, and the repository is now public without it having been done first. ADR-0007 requires this "before public release" as a pre-push condition; the repo went public anyway on 2026-08-29 by the maintainer's **explicit, direct decision** during the GitHub bootstrap (public visibility was needed to enable GitHub branch protection on this account's plan). This is recorded here as a deliberate waiver of the pre-publication sequencing, not an oversight — the check itself remains genuinely outstanding and should still be completed; it just no longer gates the repo's visibility, since that decision has already been made.
+- [ ] **[C] MPL-2.0 legal sanity check (ADR-0007)** — deferred. The repo went public on 2026-08-29 by explicit maintainer decision before this check (recorded, not an oversight) because public visibility was needed to enable branch protection on this GitHub plan. **Waiver scope now explicitly extended through the Phase 15 gate**: this check is not required to declare Foundation 0's control plane complete — there is little value in outside legal review before writing private application code, considerable value before actually distributing the software. **New trigger: before first public release/distribution of a usable build**, not before Phase 16 application code, and not merely "repo visibility" (already true and not the gating event).
 - [x] `PROVENANCE.md` — independent-implementation policy; explicit prohibited list (source translation, file-by-file ports, schema/migration/fixture/test/asset/doc copying, "inspect old source and recreate" instructions); behavioral requirement-writing example (§8)
 - [x] DCO 1.1 policy text (in `CONTRIBUTING.md`) (§10)
-- [ ] DCO sign-off enforcement (actual CI/GitHub Action) — **not done**; no CI exists yet. `CONTRIBUTING.md` now says this explicitly rather than claiming CI already enforces it.
+- [ ] **[A] DCO sign-off enforcement (actual CI/GitHub Action)** — not done, no CI exists yet. Language-independent (checks commit trailers, not code) — belongs pre-Phase-16.
 
 ## Phase 2 — Governance Scaffolding
 
-- [ ] Create doc tree exactly as specified (§14) — **mostly done, not exact.** Present: `GOVERNANCE.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `README.md`, `docs/adr/`, `docs/architecture/principles.md`, `docs/security/threat-model.md`, `docs/development/{style,dependencies,testing,documentation,translation,accessibility,ai-development}.md`. **Still absent, genuinely deferred (not stubbed):** `docs/development/setup.md` (nothing to document until Laravel/Svelte exist, Phase 16), `docs/product/{principles,glossary}.md` (product-design work, out of Foundation-0 scope). `GOVERNANCE.md`'s own repo-structure tree now annotates which of these are deferred rather than silently listing them as if present.
+- [x] **Create doc tree exactly as specified (§14) — DONE, with two explicitly deferred exceptions.** Present: `GOVERNANCE.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `README.md`, `docs/adr/`, `docs/architecture/principles.md`, `docs/security/threat-model.md`, `docs/development/{style,dependencies,testing,documentation,translation,accessibility,ai-development}.md`. **[C] deferred**: `docs/development/setup.md` (nothing to document until Laravel/Svelte exist — trigger: Phase 16), `docs/product/{principles,glossary}.md` (product-design work, out of Foundation-0 scope entirely — not gated by anything here; a draft already exists on the separate, unrelated `feature/product-principles-draft` PR #3).
 - [x] `GOVERNANCE.md`: state governance lives in this repo (not a separate one) until multiple product repos exist (§13, §55)
 - [x] Adopt MADR-style ADR template (status/context/decision/alternatives/rationale/consequences/reconsideration/supersession) (§15)
-- [x] Write Foundation ADR set (ADR-0001 through ADR-0018) per the topic list in §16 — each ADR "Accepted" status. **Evolved beyond the original set**: ADR-0011 was later split (narrowed to the local harness reviewer) and ADR-0019 added (independent PR reviewer) — see Phase 3/3a/3b.
+- [x] Write Foundation ADR set (ADR-0001 through ADR-0018) per the topic list in §16 — each ADR "Accepted" status. **Evolved beyond the original set**: ADR-0011 was later split (narrowed to the local harness reviewer, then revised again to a Claude-subagent mechanism — see Phase 3a) and ADR-0019 added (independent PR reviewer).
 - [x] Document AI trust model in `AGENTS.md`/`docs/security/threat-model.md`: untrusted-input list (issues, PR comments, uploads, imported pages, recipe content, external docs, embedded prompts); explicit statement that untrusted content never supersedes policy/ADRs/maintainer instructions; no production/unrestricted credentials for agents (§18)
 
 ## Phase 3 — AI Development Contract
 
 - [x] `AGENTS.md`: architecture invariants, provenance restrictions, security rules, dependency rules, test/doc/translation/accessibility requirements, canonical commands, Definition of Done, prohibited shortcuts, governance-file protection rules (§17)
-- [ ] Ensure any model-specific instruction files (e.g. `CLAUDE.md`, `.cursor/rules`) reference `AGENTS.md` rather than forking policy (§17) — **N/A for now**: no such file exists in this repo yet to check; revisit if one is added
-- [ ] Enable Layer 1: GitHub-native AI PR review (§21) — design-only until a GitHub remote exists; nothing is actually enabled
-- [x] Design Layer 2: independent PR semantic reviewer — see ADR-0019 (`docs/adr/0019-independent-pull-request-semantic-review.md`) for the full specification: reads PR diff/changed source/tests/docs + accepted ADRs + canonical policy from protected repo state (not the PR branch); must not execute PR code; author-blind (applies identically to maintainer, Claude Code, and third-party contributor PRs); reports required check `project-policy-review` with categories Architecture/Security/Test/Documentation Review (§21). Design complete; implementation tracked separately in Phase 3b.
-- [x] Encode AI-on-AI review checklist (invented APIs, implementation-derived tests, silent fallbacks, swallowed exceptions, excessive defensive abstraction, unjustified dependencies, invalidating mocks, unsupported comments, superficial coverage) into `AGENTS.md`, referenced by both ADR-0011 and ADR-0019 (§20, §22). The checklist is documented; it is not yet embedded in an actual reviewer service prompt, because that service doesn't exist yet (Phase 3a/3b).
+- [x] **N/A** Ensure any model-specific instruction files (e.g. `CLAUDE.md`, `.cursor/rules`) reference `AGENTS.md` (§17) — no such file exists in this repo; nothing to check. Revisit if one is added.
+- [ ] **[A] Enable Layer 1: GitHub-native AI PR review (§21)** — GitHub-settings-only, language-independent, actionable now that the remote exists. Not yet enabled.
+- [x] Design Layer 2: independent PR semantic reviewer — see ADR-0019 for full specification. Design complete; implementation tracked in Phase 3b.
+- [x] Encode AI-on-AI review checklist into `AGENTS.md`, referenced by both ADR-0011 and ADR-0019 (§20, §22).
 
-### Phase 3a — Local harness reviewer (personal productivity harness, feeds ADR-0011)
+### Phase 3a — Local harness reviewer (personal productivity harness, feeds ADR-0011) — [A]
 
-**MANDATORY NEXT HARNESS MILESTONE.** The maintainer has decided to build this: implement and verify the personal local reviewer once reviewed Foundation governance reaches trusted `main`, and **before** substantive application implementation (Phase 16+) begins. This is no longer deferred-by-choice — only the PR reviewer (Phase 3b) remains deferred, until GitHub/PR infrastructure exists.
+**MANDATORY NEXT MILESTONE, before Phase 16.** Not project governance — the maintainer's personal development harness, deliberately separate from Phase 3b/ADR-0019 (different authority, audience, policy source, posture).
 
-**Not project governance** — this is the maintainer's personal development harness, kept deliberately separate from the project-governed PR reviewer in Phase 3b/ADR-0019 (they must not be the same mechanism wearing two hats: different authority, different audience, different policy source, different posture — collaborative here, adversarial there). **Revised 2026-08-29**: the reviewer is a dedicated, user-level Claude Code subagent (read-only tools, own system prompt), not a separate OpenAI-based service — see ADR-0011's revision note for why, and its "Relationship to ADR-0019" for why this change does NOT extend to the PR reviewer.
+**Design-currentness check performed 2026-09-23** (per explicit instruction, before committing engineering effort to a possibly-superseded design): read `AGENTS.md`, `docs/development/ai-development.md`, ADR-0011, ADR-0019, and the local session-state scratchpad end to end. Finding: the design **was** revised on an unmerged branch (`feature/adr-0011-claude-subagent-reviewer`) — the original external-OpenAI-service mechanism is replaced by a dedicated, user-level Claude Code subagent reviewer (own system prompt, read-only tools, invoked via `command`-type hooks shelling out to `claude -p`, no MCP server, no external credential/service-isolation concern). ADR-0011 itself documents this as a revision, not a supersession ("Supersession: None... revised in place"), and is now folded into this branch. **No further design change found necessary** — the revised design is internally consistent with ADR-0019 and `AGENTS.md`, and no contradiction was found. Proceeding to build the revised design, not the original one.
 
-- [x] **Mechanism design**: reviewer defined at `~/.claude/agents/ricette-local-reviewer.md` (user-level, outside the repo), tools restricted to `Read`/`Grep`/`Glob` only — it judges, it cannot fix. Gates implemented as **`command`-type hooks that shell out to a `claude -p` subprocess** running that agent definition, not native `type: "agent"` hooks — Anthropic's own docs label those experimental, and this design needs the wrapping script (not the read-only reviewer) to persist approval-record state. Model roles: `LOCAL_REVIEWER_MODEL_ROUTINE=claude-sonnet-5`, `LOCAL_REVIEWER_MODEL_ELEVATED=claude-opus-5` (both real, verified model IDs from this session's own system context — not sourced from a relayed/unverified claim).
-- [x] **Plan gate** design — hook on `ExitPlanMode`: sends the proposed plan + trusted task authority (see below) + accepted ADRs + `AGENTS.md` to the reviewer subagent; on `REVISE` the hook denies the exit and returns feedback for Claude to act on; on `ESCALATE_TO_HUMAN` it surfaces to the maintainer instead of auto-looping. Mechanism: `updatedInput` must accompany `permissionDecision: "allow"` for `ExitPlanMode` auto-approval, echoing every unchanged input field since `updatedInput` replaces the whole object. **Acceptance test**: hook semantics are version-sensitive — empirically confirm this against the actual installed Claude Code version before trusting it; on mismatch, fail closed and escalate rather than enabling autonomous gating on an unconfirmed mechanism.
-- [x] **Decision gate** design — no bespoke MCP tool; `AGENTS.md` requires Claude to invoke the reviewer subagent directly (the same `Agent`/subagent-dispatch mechanism already used in this session) before consequential decisions, supplying question/proposed-decision/alternatives/evidence and acting on a structured `decision`/`rationale`/`blocking_concerns`/`adr_required`/`required_actions` response. **Not yet true, and must not be presented as true**: `AGENTS.md` does not currently require Claude to call this, because the reviewer subagent doesn't exist yet. **Acceptance test**: once built, update `AGENTS.md` to require its use before the consequential-decision classes listed in ADR-0011 (dependency, new architectural abstraction, lasting DB representation, SQLite/PostgreSQL divergence, security-boundary change, entitlement/commercial-boundary change, new infrastructure requirement, ADR deviation, new persistent public API) — verify that update actually landed, don't just assume it will.
-- [x] **Completion gate** design — `TaskCompleted` (fires via `TaskUpdate` or an agent-team teammate finishing with in-progress tasks; blocks with feedback) as primary gate whenever Task-tracking is in use — a plain session with no Task object never fires it at all. `Stop` (turn-level; `decision: "block"` + `reason`, under an 8-consecutive-block Claude-Code-enforced ceiling) retained as a **stateful backstop**, not a second fresh review: checks for a valid completion-approval record (bound to authoritative task/spec identity, evidence/diff, and policy revision — written by the command-hook wrapper script, since the read-only reviewer subagent can't persist it itself) before letting Claude stop, routes to full review if none exists on any **substantive mutating work** (not just tracked file/code diffs — a migration run or a side-effecting external call counts too). The backstop's own retry budget must stay well under the 8-block ceiling (reusing the 3/2 Routine/Elevated limits) and escalate to the maintainer on exhaustion. **Acceptance test**: prove the `TaskCompleted` path, the no-Task `Stop`-backstop path, `REVISE`-then-repair convergence, `ESCALATE`, fail-closed infrastructure-failure handling, and the bounded-retry-before-8-block-ceiling behavior all work against synthetic cases before relying on this in real development; version-sensitive hook mechanics fail closed on any runtime/documentation mismatch.
-- [x] **Task authority** design: the reviewer evaluates the agent against the maintainer's actual direct instruction and any explicitly approved spec/design or later direct correction, captured via a harness-controlled source (e.g. the trusted session/transcript) — never the agent's own paraphrase of the task, and never the reviewer subagent's own conversation with the implementer (it never sees the implementer's reasoning/chain of thought). Protected-`main` governance remains separate, unchanged project authority. Issue/PR text (unless explicitly adopted), other external content, and the agent's own diff/tests/evidence are supporting/untrusted inputs, not authority. Approval records bind to authoritative task/spec identity in addition to evidence/diff identity and policy revision.
-- [x] Authority-tier design: Routine and Elevated (deterministic-classification-based, not self-reported-confidence-based, per ADR-0011) resolve without the maintainer with default 3/2 revise-cycle limits (adjustable via personal policy); Human-decision escalates on genuine product/commercial/license/provenance/irreversible-tradeoff calls, changing (not implementing within) a security boundary, or retry exhaustion; infrastructure failures fail closed, distinct from content-based `REVISE`
-- [x] Reviewer subagent's context design loads `AGENTS.md`, `docs/adr/**`, `docs/architecture/**`, `docs/security/**` from protected `main`, never from the branch under review
-- [x] Design specifies the mandatory hook(s) register in the maintainer's **personal** Claude Code configuration (user-level settings), not the project's own `.claude/settings.json` — same "the repo can't disable what constrains it" principle as the auto-mode hard-deny split, applied here to a personal rather than project boundary
-- [x] Design specifies personal policy (autonomy level, retry/convergence limits, personally-preferred escalation triggers, model/effort preferences) lives outside the repo (e.g. `~/.claude/reviewer-policy/`) — it is not subject to CODEOWNER review or community contribution rules, because it governs the maintainer's working style, not the project's engineering contract
-- [x] Design states: **do not feed this reviewer's conversation/reasoning into the Phase 3b PR reviewer** — that would anchor the "independent" PR check on whatever already convinced this collaborative one; and correlated same-vendor blind spots are an accepted tradeoff here specifically, not extended to ADR-0019
-- [ ] **In progress**: build the reviewer agent definition, the command-hook wrapper scripts, approval-record storage, and run every acceptance test listed above.
+- [x] **Mechanism design**: reviewer defined at `~/.claude/agents/ricette-local-reviewer.md` (user-level, outside repo), tools restricted to `Read`/`Grep`/`Glob` only. Gates are `command`-type hooks shelling out to `claude -p` (not experimental native agent-hooks). Model roles: `LOCAL_REVIEWER_MODEL_ROUTINE=claude-sonnet-5`, `LOCAL_REVIEWER_MODEL_ELEVATED=claude-opus-5`.
+- [x] **Plan gate** design — hook on `ExitPlanMode`. Acceptance test: hook semantics are version-sensitive, empirically confirm before trusting.
+- [x] **Decision gate** design — direct subagent invocation, no bespoke MCP tool. Acceptance test: `AGENTS.md` must be updated to require this once the subagent exists — verify the update actually landed.
+- [x] **Completion gate** design — `TaskCompleted` primary, `Stop` stateful backstop. Acceptance test: prove all listed paths (TaskCompleted, no-Task backstop, REVISE-repair convergence, ESCALATE, fail-closed infra-failure, bounded-retry) against synthetic cases first.
+- [x] **Task authority** design — evaluates against the maintainer's actual instruction/approved spec, never the agent's paraphrase, never the reviewer's own conversation with the implementer.
+- [x] Authority-tier design (Routine/Elevated/Human-decision, deterministic classification not self-reported confidence).
+- [x] Reviewer context loads from protected `main`, never the branch under review.
+- [x] Hooks register in the maintainer's personal Claude Code config, not the project's.
+- [x] Personal policy lives outside the repo, not subject to CODEOWNER review.
+- [x] Do not feed this reviewer's conversation into the Phase 3b PR reviewer; correlated same-vendor blind spots accepted here specifically, not extended to ADR-0019.
+- [ ] **[A] Not done — build the reviewer agent definition file, the command-hook wrapper scripts, approval-record storage, and run every acceptance test above.** This is the actual remaining engineering work.
 
-### Phase 3b — Independent PR semantic reviewer design (formal Layer 2 spec, feeds ADR-0019)
+### Phase 3b — Independent PR semantic reviewer (formal Layer 2, feeds ADR-0019) — [A]
 
-**Project governance** — protects the project from any contributor's PR (maintainer, Claude Code, first-time outside contributor, or Dependabot-style automated change) identically. Separate service from Phase 3a, deliberately adversarial rather than collaborative:
+**Project governance**, not personal harness — protects the project from any contributor's PR identically. Deliberately adversarial, cross-vendor by design (unaffected by the Phase 3a mechanism pivot — see ADR-0011's "Relationship to ADR-0019").
 
-- [x] Design specifies review against: **authorized requirements only** (protected-`main` ADRs/policy, plus an explicitly maintainer-accepted product/task spec — never the PR/issue text alone, which is untrusted evidence, per the ADR-0019 fix for the "contributor authors their own rubric" bug), accepted ADRs/architecture, `docs/security/threat-model.md`, tests-prove-requirements (not superficial/implementation-derived, per §20/§22), coverage, documentation, translation, accessibility, dependency policy, `PROVENANCE.md`, and the `CONTRIBUTING.md` contribution contract
-- [x] Design specifies fresh context every time — never receives the Phase 3a local-reviewer conversation history, even when the PR originated from Claude Code under that gate
-- [x] Design specifies loading `AGENTS.md`/`GOVERNANCE.md`/`docs/adr/**`/`docs/security/**`/`docs/development/**`/`CONTRIBUTING.md` from protected `main` — a PR editing any of these is reviewed against the `main` version, not its own proposed edits, so a contributor cannot weaken the reviewer from inside the PR being reviewed
-- [x] Design specifies read-only: must not execute code from the PR under review
-- [x] Design specifies author-blind: prompt does not condition on who opened the PR
-- [x] Design specifies the required status check `project-policy-review` (`PASS`/`REQUEST_CHANGES`, categories Architecture/Security/Test/Documentation Review per §21); `PASS` satisfies the automated gate only — it does not itself merge the PR
-- [x] Design specifies risk tiers: Standard PR (CI + `project-policy-review` PASS + one human approval); Sensitive PR (touches auth/authz/security/dependencies/migrations/entitlements/`.github/**`/`.claude/**`/`AGENTS.md`/`docs/adr/**`/release machinery — adds CODEOWNER review); Governance-changing PR (reviewer output is advisory only — explicit maintainer approval required regardless, since the reviewer cannot bless its own new rules into existence)
-- [x] Design specifies a separate model configuration namespace from Phase 3a — `PR_REVIEWER_MODEL_STANDARD` (currently `gpt-5.6-terra`) / `PR_REVIEWER_MODEL_SENSITIVE` (currently `gpt-5.6-sol`) — distinct service, not the Phase 3a reviewer reused
-- [x] Design specifies credential/service-isolation handling: same external-secret and narrow-fixed-operation constraints as Phase 3a, configured separately
-- [ ] **Not done**: implementation waits until the repository has a GitHub remote and at least one real PR to exercise the required-check wiring against
+**Design-currentness check**: no evidence found of any revision to ADR-0019 or Phase 3b's design anywhere in this repo (tracked or unmerged branches). Design remains current.
 
-## Phase 4 — Repository Protection
+- [x] Design specifies review against authorized requirements only (protected-`main` policy + explicitly maintainer-accepted spec, never PR/issue text alone).
+- [x] Fresh context every time; never receives Phase 3a's conversation history.
+- [x] Loads governance from protected `main`, never the PR's own proposed edits.
+- [x] Read-only; must not execute PR code.
+- [x] Author-blind.
+- [x] Required status check `project-policy-review` (PASS/REQUEST_CHANGES); PASS satisfies the automated gate only.
+- [x] Risk tiers: Standard/Sensitive/Governance-changing, with CODEOWNER/explicit-maintainer escalation as appropriate.
+- [x] Separate model-config namespace from Phase 3a.
+- [x] Credential/service-isolation handling specified.
+- [ ] **[A] Not done — build the reviewer service and wire the `project-policy-review` required check.** Its own stated precondition ("GitHub remote + a real PR exist") is already met — nothing external blocks starting this.
+
+## Phase 4 — Repository Protection — [A]
 
 - [ ] Protect `main`: require PRs, required status checks, required review, resolved conversations, no force-push, no branch deletion, protected release tags, controlled merge strategy (§23)
-- [ ] `CODEOWNERS` covering: `.github/**`, `.claude/**` (added beyond §24's list — a change to the auto-mode classifier policy is at least as sensitive as a change to `AGENTS.md`), `AGENTS.md`, `GOVERNANCE.md`, `PROVENANCE.md`, `LICENSE*`, `SECURITY.md`, `CONTRIBUTING.md`, `docs/adr/**`, `docs/security/**`, `composer.json`/`composer.lock`, `package.json`/frontend lockfile, `database/migrations/**`, auth/authz/entitlement/billing-adapter code, deployment config, security-sensitive code (§24)
+- [ ] `CODEOWNERS` covering the paths listed in §24. Note: several listed paths (`composer.json`, `database/migrations/**`, etc.) don't exist yet — create the file now covering what exists (governance files, `docs/adr/**`, `.github/**`), and add the application-specific paths as part of the Phase-16 PR itself (a [B] addition to this same file, not a new phase item).
 
 ## Phase 5 — Contribution Policy
 
-- [ ] `CONTRIBUTING.md`: contribution contract = implementation + tests + documentation (§25); feature requirements (§26); bug-fix requirements incl. "regression test must fail before the fix" (§27); architecture-change requirements incl. ADR update (§28)
-- [ ] Define `exception:no-test` / `exception:no-doc` maintainer-controlled labels (§29)
-- [ ] Implement required CI check `contribution-policy`: verifies tests+docs present for behavior changes, translation keys for user-facing changes, honors exception labels (§48)
+- [x] **`CONTRIBUTING.md`: contribution contract — DONE.** §"The contribution contract" already matches §25–28 verbatim (implementation+tests+documentation; feature/bug-fix/architecture-change requirements incl. regression-test-must-fail-first and required ADR updates).
+- [x] **Define `exception:no-test`/`exception:no-doc` labels — policy DONE** (`CONTRIBUTING.md` §"Exceptions"). **[A] residual**: create the actual GitHub labels (trivial, bundle with Phase 4's GitHub-config work).
+- [ ] **[A] Implement required CI check `contribution-policy`** (§48) — not done, no CI exists.
 
 ## Phase 6 — Machine-Enforced Style
 
-- [ ] PHP: Laravel Pint config committed (§30)
-- [ ] Frontend: Prettier + ESLint + `tsconfig` strict mode (no implicit `any`) + `svelte-check`, suppressions require justification (§30)
-- [ ] Repo-wide: Markdown lint/format, YAML validation, JSON formatting, GitHub Actions linting, Dockerfile linting, spelling check (§30)
+- [ ] **[A] Repo-wide: Markdown lint/format, YAML validation, JSON formatting, GitHub Actions linting, spelling check (§30)** — operates on files that already exist (docs, this plan, future workflow files); language-independent, belongs pre-Phase-16.
+- [ ] **[B] PHP: Laravel Pint config committed (§30)** — needs a PHP project to configure against meaningfully; installed/wired as part of the Phase-16 PR.
+- [ ] **[B] Frontend: Prettier + ESLint + `tsconfig` strict + `svelte-check` (§30)** — same reasoning, Phase-16 PR.
+- [ ] **[B] Dockerfile linting** — needs a Dockerfile to exist; Phase-16 PR.
+
+*(Policy/tool choices for all of the above are already documented in `docs/development/style.md` — that's the decision, not the enforcement. Documenting intent isn't the same as the machine-enforced thing existing.)*
 
 ## Phase 7 — Canonical Developer Commands
 
-- [ ] `./bin/format` — auto-fixes formatting across PHP/TS/repo-wide tooling (§31)
-- [ ] `./bin/verify` — single command proving admissibility; starts as a stub and grows checks as later phases land (formatting, PHPStan, TS/Svelte checks, unit/feature/component tests, SQLite+PostgreSQL integration, browser tests, a11y checks, translation validation, doc validation, dependency-policy checks, security scans, coverage incl. changed-code coverage, prod frontend build, container build sanity) (§31, §32)
-- [ ] Wire CI to invoke the same `./bin/verify` targets as local — no drift between local/remote "done" (§32)
+- [ ] **[A] `./bin/format`, `./bin/verify` (the spine)** — start as stubs covering the [A]-gate checks (repo-wide lint, DCO, contribution-policy, security scanning); each [B] check is added to the same script, not a parallel command, as Phase 16 introduces its substrate.
+- [ ] **[A] Wire CI to invoke the same `./bin/verify` targets as local.**
 
-## Phase 8 — Static Analysis
-
-- [ ] PHPStan + Larastan targeting level 10 from the start; no large ignore baseline (§33)
-- [ ] TS strict mode + ESLint + svelte-check wired into CI; treat warnings as non-permanent (§33)
+## Phase 8 — Static Analysis — [B] (both items — PHPStan/Larastan and TS-strict/ESLint/svelte-check both need the respective language project to exist; wired as part of the Phase-16 PR, per §33's targets already documented in `docs/development/style.md`)
 
 ## Phase 9 — Dependency Governance & Supply Chain
 
-- [ ] Document dependency decision order (framework-native → mature package → custom) and required justification fields (problem, why framework is insufficient, maturity, maintenance activity, license, transitive cost, security implications, self-hosting consequences, replacement difficulty) in `docs/development/dependencies.md` (§34)
-- [ ] Decide JS package manager (lean: pnpm, unless Laravel scaffolding friction outweighs it) — write small tooling decision record (§34, §68)
-- [ ] Commit lockfiles as mandatory CI check
-- [ ] Enable Dependabot, dependency review, secret scanning + push protection, container vulnerability scanning, package-license checks, SBOM generation, artifact provenance, pinned external GitHub Actions (pin to immutable SHAs) (§35)
-- [ ] Plan short-lived OIDC/federated credentials for future hosted cloud deploys instead of long-lived secrets (§35)
+- [x] **Document dependency decision order — DONE** (`docs/development/dependencies.md`, matches §34 verbatim).
+- [ ] **[A] Decide JS package manager, write the small tooling decision record** — small, no code dependency, actionable now (`docs/development/dependencies.md` already recommends pnpm pending this record).
+- [ ] **[B] Commit lockfiles as mandatory CI check** — no lockfiles exist until Phase 16 introduces `composer.lock`/a JS lockfile.
+- [ ] **[A] Enable Dependabot, dependency review, secret scanning + push protection, container vulnerability scanning, package-license checks, SBOM generation, pinned external GitHub Actions** — GitHub-native, language-agnostic, actionable now regardless of app code.
+- [ ] **[C] Plan short-lived OIDC/federated credentials for future hosted cloud deploys** — explicitly scoped to future *hosted* deployment (not the self-hosted community path Phase 16 targets, ADR-0005). Trigger: when hosted-deployment work begins.
 
 ## Phase 10 — Security Foundations
 
-- [ ] `docs/security/threat-model.md` covering: auth, sessions, household authorization, recipe import, uploads, user-generated content, background processing, AI integrations, billing/entitlements, self-hosted defaults (§36)
-- [ ] Household isolation test plan: same-household access, cross-household denial, ID guessing, indirect relationships, background-job authorization, shared-link behavior — treat horizontal authz failures as high severity (§37)
-- [ ] Recipe-import security design: SSRF/private-address/cloud-metadata protection, redirect validation, timeouts, size limits, content-type handling, safe parsing boundaries (§38)
-- [ ] Upload security design: type validation, size limits, safe image processing, malformed-file handling, decompression-bomb protection, storage isolation, generated (not user-supplied) filenames (§39)
-- [ ] AI security controls doc: prompt injection, cross-user leakage, tool-use escalation, unbounded spend, malformed structured output, hallucinated actions, malicious imported content, server-side validation of AI-generated structured data (§40)
-- [ ] Automated security tooling: Semgrep, Larastan/PHPStan, Composer audit (PHP); CodeQL, package audit, lint security rules, secret scanning, dependency review (TS/repo) (§41)
-- [ ] Confirm CODEOWNERS enforces human review on all security-sensitive paths (§41, ties to Phase 4)
+- [x] **`docs/security/threat-model.md` — DONE**, covers all 9 required categories (§36).
+- [x] **Household isolation test *plan* — DONE** (same doc, explicit scenario list matching §37; test *implementation* correctly deferred to Phase 17 when household code exists).
+- [x] **Recipe-import security *design* — DONE** (§38, matches verbatim).
+- [x] **Upload security *design* — DONE** (§39, matches verbatim).
+- [x] **AI security controls doc — DONE** (§40, matches verbatim, plus an AI-reviewer-specific attack-surface section beyond what §40 required).
+- [ ] **[A] Automated security tooling: Semgrep, CodeQL, secret scanning, dependency review** — GitHub-native/language-agnostic-enough to enable now. **[B] Larastan, Composer audit** specifically — PHP-dependent, Phase-16 PR.
+- [ ] **[A] Confirm CODEOWNERS enforces security-sensitive paths** — depends on Phase 4's CODEOWNERS existing; the paths that exist pre-Phase-16 (governance files) can be confirmed now, app-specific security paths confirmed as part of the Phase-16 PR.
 
-## Phase 11 — Testing Architecture
+## Phase 11 — Testing Architecture — all [B]
 
-- [ ] Domain/unit: Pest — quantities, unit conversion, food hierarchy, entitlement logic, transformations, invariants (§42)
-- [ ] Laravel feature/integration tests: routing, authz, validation, transactions, persistence, jobs, Inertia responses, security boundaries (§42)
-- [ ] Svelte component tests: Vitest + Testing Library — interactions, state transitions, component contracts, a11y behavior (§42)
-- [ ] Browser tests: Playwright, reserved for meaningful e2e journeys (account creation, household setup, recipe create/edit, food hierarchy manipulation, recipe import, meal planning, shopping, inventory) — do not duplicate unit coverage (§42, §43)
-- [ ] Dual-database CI matrix (SQLite + PostgreSQL) covering migrations, constraints, model behavior, hierarchy queries, transactions, queue persistence, search abstractions, upgrade paths; green PostgreSQL is not sufficient if SQLite is broken (§44)
-- [ ] Configure coverage tooling + thresholds: PHP global ≥85% / changed ≥95%; frontend global line/stmt ≥85%, branch ≥80%, changed ≥95% (§45, §68 "Coverage implementation")
-- [ ] Identify critical-path code requiring near-complete meaningful coverage: authorization, household boundaries, entitlement logic, unit conversion, quantity calc, importer security, billing state changes (§46)
-- [ ] Select PHP mutation-testing framework; apply selectively to units/quantities/entitlement rules/permission predicates/hierarchy invariants/billing transitions (§47, §68)
+Every item (Pest/domain-unit, Laravel feature tests, Svelte/Vitest component tests, Playwright browser tests, dual-database CI matrix, coverage tooling wiring, mutation-testing framework selection) needs the respective language project to exist. **Caveat, not a loophole**: this doesn't mean "write meaningful tests before Phase 16" — there's nothing to test yet. What's gateable is the harness (test runners installed, dual-DB CI matrix configured, coverage tooling wired) existing and running in CI as part of the Phase-16 PR, with real test content arriving alongside that PR's actual code.
 
-## Phase 12 — Internationalization & Accessibility
+- [x] **Coverage thresholds — DONE** (`docs/development/testing.md`, exact numbers match §45).
+- [x] **Critical-path coverage list — DONE** (same doc, matches §46 verbatim).
+- [ ] **[B]** Everything else in this phase.
 
-- [ ] i18n architecture ADR/doc: no hardcoded strings, consistent keys, one canonical architecture, plural/interpolation support, locale-aware dates/numbers/units, fallback locale, CI translation validation (§49)
-- [ ] Pseudo-localization + RTL test/pseudo-locale support early (§49)
-- [ ] Translation contribution rule: user-visible PRs include keys in the same PR; machine translation assists but isn't auto-authoritative (§50)
-- [ ] Accessibility baseline WCAG 2.2 AA documented; canonical-control requirements (keyboard nav, focus visibility, semantic HTML, accessible names, screen-reader behavior, dialog/drawer focus mgmt, touch targets, reduced motion, drag/drop alternatives, non-color-only indicators) folded into component definitions, not remediation backlog (§51)
-- [ ] UI component strategy doc: commodity primitives via established libs (dialog, popover, select, combobox, tabs, menu, toast, date controls) vs. domain-owned components (`FoodTree`, `IngredientRow`, `QuantityInput`, `UnitSelector`, `RecipeCard`, `RecipeEditor`, `RecipeImporter`, `MealSlot`, `MealPlanner`, `ShoppingItem`) (§52)
+## Phase 12 — Internationalization & Accessibility — entirely already satisfied at the policy/doc level
 
-## Phase 13 — Documentation & Support Model
+- [x] **i18n architecture doc — DONE** (`docs/development/translation.md`, matches §49 verbatim).
+- [x] **Pseudo-localization/RTL *policy* — DONE** (same doc; implementation correctly deferred to Phase 16+, no frontend exists yet).
+- [x] **Translation contribution rule — DONE** (same doc, matches §50).
+- [x] **Accessibility baseline + canonical controls — DONE** (`docs/development/accessibility.md`, matches §51 verbatim).
+- [x] **UI component strategy doc — DONE** (same doc, matches §52 verbatim).
+- [ ] **[B] CI translation validation** — the only genuinely remaining item, needs a real translation-key extraction pipeline once frontend code exists.
 
-- [ ] Confirm docs categories populated: architecture (why), developer (how structured/extended), user (how features work), operations (install/upgrade/backup/restore/troubleshoot), security (threat model + disclosure) (§53)
-- [ ] State Wiki policy: GitHub Wiki never authoritative for architecture/security/AI/governance/contribution/release policy (§54)
-- [ ] Support model doc: GitHub Discussions (install help, questions, community support) vs Issues (defects, feature proposals) vs private vulnerability reporting; community = best effort, no SLA; note hosted gets separate commercial support (§56)
-- [ ] `SECURITY.md`: supported versions, private disclosure mechanism, response expectations, scope, coordinated disclosure; enable GitHub private vulnerability reporting (§57)
+## Phase 13 — Documentation & Support Model — entirely already satisfied except one toggle
+
+- [x] **Doc categories — DONE** (`docs/development/documentation.md`, matches §53).
+- [x] **Wiki policy — DONE** (same doc, matches §54).
+- [x] **Support model doc — DONE** (`SUPPORT.md`, matches §56 verbatim).
+- [x] **`SECURITY.md` content — DONE** (matches §57: supported versions, disclosure mechanism, response expectations, scope, coordinated disclosure).
+- [ ] **[A] Actually enable GitHub's private-vulnerability-reporting feature** — the doc is satisfied; the repo-settings toggle isn't flipped yet. Small, actionable now.
 
 ## Phase 14 — Release Engineering
 
-- [ ] Container-first release model: OCI/Docker image, `linux/amd64` + `linux/arm64` targets (§58)
-- [ ] Release pipeline eventually emits: semver, immutable image, release notes, migration info, SBOM, build provenance/attestation, upgrade docs; production artifacts only from trusted release workflows (§58)
-- [ ] Versioning policy doc: SemVer once compatibility matters; pre-1.0 breaking changes allowed but must be intentional/documented; DB upgrade paths are product functionality (§59)
-- [ ] Migration testing plan: upgrade fixtures verifying migration success, data survival, constraint validity, app boot — on both SQLite and PostgreSQL (§60)
+- [ ] **[B] Container-first release model: basic OCI image, both architectures (§58)** — needed for Phase 16's own "container builds" bullet; nothing to containerize before then.
+- [ ] **[C] Full release pipeline: SBOM, provenance attestation, immutable-image signing, trusted-workflow-only production artifacts** — can't meaningfully exist before there's a first real release to attach it to. Trigger: first tagged release.
+- [ ] **[A] Versioning policy doc (§59)** — pure writing, no code dependency, actionable now.
+- [ ] **[C] Migration-upgrade-fixture testing across versions (§60)** — structurally impossible with zero shipped versions (nothing to upgrade *from*). Trigger: after the first schema exists and a second migration is added.
 
 ## Phase 15 — PR Funnel, Review Tiers & Gate Audit
 
-- [ ] Wire full required-check funnel from §61 diagram into branch protection: format/style, static analysis, PHP tests, Svelte tests, SQLite tests, PostgreSQL tests, browser tests, a11y checks, dependency review, security scanning, translation checks, doc checks, coverage, changed coverage, contribution-policy, AI policy review, human review
-- [ ] Document risk-based review tiers: ordinary changes (checks + AI review + 1 human approval); sensitive changes — auth/authz/entitlements/billing/migrations/dependencies/CI/deployment/security/`AGENTS.md` (checks + AI review + CODEOWNER approval); governance changes — license/provenance/architecture invariants/security policy/AI review policy/contribution requirements (explicit maintainer approval) (§62)
-- [ ] Publish Definition of Done checklist (§63) as the canonical merge bar
-- [ ] **Gate audit**: walk every bullet in §64 (Legal, Governance, Development, Security, Testing, AI, Product architecture, Release) and confirm each is actually enforced, not just documented, before declaring Foundation 0 complete
+- [ ] **[A]+[B], split by check**: wire the full required-check funnel (§61) into branch protection. The [A]-tooling checks (format/lint, DCO, contribution-policy, security scanning, AI review) go in now, pre-Phase-16. The [B]-tooling checks (PHP/Svelte/browser tests, dual-DB, coverage, container-build) are added as required checks *as part of* the Phase-16 PR that introduces their substrate — this is the concrete mechanism behind the "B items are merge conditions of the first application PR" invariant.
+- [x] **Document risk-based review tiers — DONE** (`CONTRIBUTING.md` §"Review process", matches §62 verbatim).
+- [x] **Publish Definition of Done checklist — DONE** (`AGENTS.md` §"Definition of Done", matches §63).
+- [ ] **[A] Gate audit**: walk every §64 bullet and confirm each is actually enforced, not just documented, before declaring the pre-Phase-16 control plane complete. This is the capstone — mechanically incapable of being true until the [A] items above are real.
 
 ## Phase 16 — First Application PR (§65)
 
-Only after Phase 15's gate audit passes. Deliberately near-zero product functionality; must prove:
+Only after Phase 15's [A]-gate audit passes. Deliberately near-zero product functionality; must prove — **and every [B] item above becomes a merge condition of this specific PR, not a separate later phase**:
 - [ ] Laravel 13 boots, Svelte 5 boots, TS strict mode works, Inertia works
 - [ ] SQLite works, PostgreSQL works
 - [ ] One page renders; frontend assets compile
@@ -234,6 +266,6 @@ Narrow slice in this order, validating domain design, permissions, client intera
 ## Notes on sequencing
 
 - Phases 1–4 are pure documentation/config and can proceed largely in parallel; they're ordered above by dependency (license before contribution docs before branch protection referencing those docs).
-- Phases 5–14 build out the enforcement machinery (`./bin/verify` in Phase 7 is the spine — it starts as a near-empty stub and each later phase adds a real check to it rather than inventing a parallel command).
-- Phase 15's gate audit is the actual gate referenced in the source doc's status line ("no application/domain code... until Foundation 0 controls... are established or explicitly deferred by an approved ADR") — any item skipped here must be deferred via an explicit ADR, not silently dropped.
+- Phases 5–14 build out the enforcement machinery (`./bin/verify` in Phase 7 is the spine — it starts as a near-empty stub and each later phase adds a real check to it rather than inventing a parallel command). As of this reconciliation, that spine only needs to carry [A] checks pre-Phase-16; [B] checks are added to it by the Phase-16 PR itself.
+- Phase 15's gate audit is the actual gate referenced in the source doc's status line ("no application/domain code... until Foundation 0 controls... are established or explicitly deferred by an approved ADR") — any item skipped here must be deferred via an explicit ADR, not silently dropped. The audit's scope is the [A] set; [B] items are audited as part of Phase-16 PR review instead.
 - §67 ("Decisions Settled by Foundation 0") and §69 (success criterion) aren't separate work items — they're the acceptance criteria this whole plan is building toward. §68's small tooling choices are folded into the phase where each belongs (noted inline above) rather than tracked separately.
