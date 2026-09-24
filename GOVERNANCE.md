@@ -95,7 +95,8 @@ Three tiers of change, each with its own review bar (also stated in
 `CONTRIBUTING.md`):
 
 - **Ordinary changes** — deterministic checks, AI review, one human
-  approval.
+  approval (except an agent-authored change meeting every condition of
+  ADR-0021, which the agent may merge itself).
 - **Sensitive changes** (auth, authorization, entitlements, billing,
   migrations, dependencies, CI, deployment, security, `AGENTS.md`) —
   deterministic checks, AI review, CODEOWNER approval.
