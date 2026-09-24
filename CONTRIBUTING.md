@@ -113,7 +113,9 @@ frontend).
 
 ## Review process
 
-- **Ordinary changes**: deterministic CI, AI review, one human approval.
+- **Ordinary changes**: deterministic CI, AI review, one human approval
+  (an AI coding agent may merge its own Ordinary change without it only
+  under the narrow conditions of ADR-0021).
 - **Sensitive changes** (auth, authorization, entitlements, billing,
   migrations, dependencies, CI, deployment, security, `AGENTS.md`):
   deterministic CI, AI review, CODEOWNER approval.

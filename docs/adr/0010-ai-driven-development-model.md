@@ -40,4 +40,4 @@ If agent tooling changes in a way that makes branch/PR-only workflows impractica
 
 ## Supersession
 
-None. This is the initial ADR for this decision area.
+Amended in part by ADR-0021 (narrow standing exception allowing agent self-merge under stated conditions). Otherwise none; this is the initial ADR for this decision area.
