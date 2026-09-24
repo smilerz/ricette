@@ -162,9 +162,29 @@ satisfied by ADR-0011's local reviewer alone.
 - Do not invent APIs, silently swallow exceptions, add defensive
   abstraction beyond what's asked, or introduce a dependency to avoid a
   small amount of native code — see the AI-on-AI review checklist below.
-- Do not bypass required review or required CI checks, merge your own PR,
-  or push directly to `main` — see the auto-mode hard-deny policy
-  (`IMPLEMENTATION_PLAN.md`, "Auto-mode enforcement split").
+- Do not bypass required review or required CI checks, merge your own PR
+  (except under the narrow, currently dormant exception in ADR-0021 — see
+  "Agent merge exception" below), or push directly to `main` — see the
+  auto-mode hard-deny policy (`IMPLEMENTATION_PLAN.md`, "Auto-mode
+  enforcement split").
+
+## Agent merge exception
+
+ADR-0021 permits an agent to merge a PR **it authored** only when every one
+of these holds, and does nothing until the maintainer has put its enforcement
+in place (branch protection with the required checks, `project-policy-review`
+required, an agent identity distinct from the maintainer's):
+
+- no changed file is covered by `CODEOWNERS`;
+- the PR implements an Active Issue whose blockers and gates are satisfied;
+- every required check is green on the head commit and the ADR-0019 reviewer
+  passes with nothing unresolved;
+- no `exception:*` label and no `no-agent-merge` label;
+- the PR does not record a governance decision or gate result;
+- the merge is the normal PR merge, never an administrator override.
+
+Never merge someone else's PR. Post the audit comment ADR-0021 requires. If
+any condition is uncertain, do not merge.
 
 ## AI-on-AI review checklist
 

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Repo-wide, language-independent lint (Foundation 0 §30): Markdown, YAML,
+# JSON, GitHub Actions workflows, documentation spelling.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+fail=0
+step() {
+  local name=$1
+  shift
+  echo "-- $name"
+  if ! "$@"; then
+    echo "FAILED: $name" >&2
+    fail=1
+  fi
+}
+
+# py_tool <package> <version> <command> [args...]
+py_tool() {
+  local pkg=$1 ver=$2 cmd=$3
+  shift 3
+  if command -v uvx >/dev/null 2>&1; then
+    uvx --from "$pkg==$ver" "$cmd" "$@"
+  elif command -v pipx >/dev/null 2>&1; then
+    pipx run --spec "$pkg==$ver" "$cmd" "$@"
+  else
+    echo "need uvx or pipx to run $cmd" >&2
+    return 127
+  fi
+}
+
+lint_markdown() { npx --yes markdownlint-cli2@0.23.3; }
+
+lint_yaml() {
+  local files
+  files=$(git ls-files '*.yml' '*.yaml')
+  [ -z "$files" ] && return 0
+  # shellcheck disable=SC2086
+  py_tool yamllint 1.38.0 yamllint -c .yamllint $files
+}
+
+lint_json() {
+  local f rc=0
+  while IFS= read -r f; do
+    if ! diff -q <(jq --indent 2 . "$f") "$f" >/dev/null 2>&1; then
+      echo "not valid, 2-space-formatted JSON: $f (run ./bin/format)" >&2
+      rc=1
+    fi
+  done < <(git ls-files '*.json')
+  return $rc
+}
+
+lint_actions() {
+  local files
+  files=$(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml')
+  [ -z "$files" ] && return 0
+  # shellcheck disable=SC2086
+  py_tool actionlint-py 1.7.12.25 actionlint $files
+}
+
+lint_spelling() {
+  local files
+  files=$(git ls-files)
+  # shellcheck disable=SC2086
+  py_tool codespell 2.4.3 codespell --config .codespellrc $files
+}
+
+step markdown lint_markdown
+step yaml lint_yaml
+step json lint_json
+step github-actions lint_actions
+step spelling lint_spelling
+
+exit $fail

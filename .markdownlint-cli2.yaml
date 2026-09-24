@@ -1,0 +1,17 @@
+gitignore: true
+globs:
+  - "**/*.md"
+ignores:
+  # Verbatim, immutable historical record; never reformatted.
+  - docs/architecture/foundation-0-design-baseline.md
+  # Local, untracked agent state.
+  - .claude/**
+config:
+  default: true
+  MD013: false # prose is not hard-wrapped to a fixed width
+  MD024:
+    siblings_only: true # same heading text under different parents is fine
+  MD032: false # list/blank-line spacing is a style preference
+  MD033: false # inline HTML allowed where a doc genuinely needs it
+  MD041: false
+  MD060: false # table pipe spacing is a style preference
