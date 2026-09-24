@@ -42,6 +42,19 @@ Enable from the beginning:
 - artifact provenance
 - pinned external GitHub Actions
 
-External Actions should be pinned to immutable revisions where practical.
+## GitHub Actions pinning
+
+Every external GitHub Action (any `uses:` that is not a local `./` path) is
+pinned to a **full 40-character commit SHA**, with the release tag in a trailing
+comment for readability:
+
+```yaml
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+
+Tags and branches are mutable, so they are not accepted. Dependabot's
+`github-actions` ecosystem proposes SHA updates. A workflow that cannot be
+pinned (for example, an action distributed only through a mutable reference)
+needs an explicit justification in the PR that adds it.
 
 Hosted cloud deployments should use short-lived federated/OIDC credentials instead of long-lived cloud secrets when supported.
