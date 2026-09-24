@@ -61,7 +61,7 @@ jobs:
         run: |
           docker run -d --name ricette-smoke -p 8080:8080 \
             -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ricette:ci
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/up >/dev/null; then
               echo "container is serving /up"
               exit 0

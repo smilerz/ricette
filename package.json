@@ -38,8 +38,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "format": "prettier --write --ignore-unknown resources scripts e2e vite.config.ts eslint.config.js playwright.config.ts tsconfig.json",
-    "format:check": "prettier --check --ignore-unknown resources scripts e2e vite.config.ts eslint.config.js playwright.config.ts tsconfig.json",
+    "format": "prettier --write --ignore-unknown resources scripts e2e vite.config.ts vitest.config.ts svelte.config.js eslint.config.js playwright.config.ts tsconfig.json",
+    "format:check": "prettier --check --ignore-unknown resources scripts e2e vite.config.ts vitest.config.ts svelte.config.js eslint.config.js playwright.config.ts tsconfig.json",
     "lint": "eslint .",
     "check": "svelte-check --workspace resources/js --tsconfig ../../tsconfig.json && tsc -p tsconfig.json",
     "test": "vitest run",

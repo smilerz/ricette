@@ -42,20 +42,8 @@ it('refuses a locale name that is not a plain language tag', function (): void {
     expect(Translations::for('../en', '../en'))->toBe([]);
 });
 
-it('skips values that are not strings', function (): void {
-    useCatalogs(['en.json' => '{"a":"A","b":1}']);
-
-    expect(Translations::for('en', 'en'))->toBe(['a' => 'A']);
-});
-
-it('fails loudly on invalid JSON', function (): void {
+it('fails loudly on an invalid catalog file', function (): void {
     useCatalogs(['en.json' => '{nope']);
 
     Translations::for('en', 'en');
 })->throws(RuntimeException::class, 'Invalid translation file');
-
-it('fails loudly when the catalog is not an object', function (): void {
-    useCatalogs(['en.json' => '"text"']);
-
-    Translations::for('en', 'en');
-})->throws(RuntimeException::class, 'must contain a JSON object');

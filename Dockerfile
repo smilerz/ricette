@@ -25,7 +25,7 @@ COPY bootstrap ./bootstrap
 COPY config ./config
 COPY database ./database
 COPY routes ./routes
-RUN composer dump-autoload --no-dev --optimize --classmap-authoritative --no-interaction
+RUN composer dump-autoload --no-dev --no-scripts --optimize --classmap-authoritative --no-interaction
 
 # --- Runtime ----------------------------------------------------------------
 FROM php-base AS runtime

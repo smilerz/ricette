@@ -23,6 +23,34 @@ final class Translations
     }
 
     /**
+     * Parses the contents of one catalog file. Values that are not strings are skipped.
+     *
+     * @return array<string, string>
+     */
+    public static function parse(string $contents, string $source): array
+    {
+        try {
+            $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException("Invalid translation file [{$source}].", previous: $exception);
+        }
+
+        if (! is_array($decoded)) {
+            throw new RuntimeException("Translation file [{$source}] must contain a JSON object.");
+        }
+
+        $messages = [];
+
+        foreach ($decoded as $key => $value) {
+            if (is_string($value)) {
+                $messages[(string) $key] = $value;
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
      * @return array<string, string>
      */
     private static function load(string $locale): array
@@ -43,24 +71,6 @@ final class Translations
             throw new RuntimeException("Unable to read translation file [{$path}].");
         }
 
-        try {
-            $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException("Invalid translation file [{$path}].", previous: $exception);
-        }
-
-        if (! is_array($decoded)) {
-            throw new RuntimeException("Translation file [{$path}] must contain a JSON object.");
-        }
-
-        $messages = [];
-
-        foreach ($decoded as $key => $value) {
-            if (is_string($value)) {
-                $messages[(string) $key] = $value;
-            }
-        }
-
-        return $messages;
+        return self::parse($contents, $path);
     }
 }

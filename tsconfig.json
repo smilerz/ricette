@@ -28,10 +28,12 @@
     "resources/js/**/*.ts",
     "resources/js/**/*.svelte",
     "scripts/**/*.mjs",
-    "vite.config.ts",
     "playwright.config.ts",
     "e2e/**/*.ts",
     "eslint.config.js",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "svelte.config.js"
   ]
 }
