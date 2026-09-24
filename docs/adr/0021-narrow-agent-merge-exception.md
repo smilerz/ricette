@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (requires explicit maintainer approval; this is a governance change)
+Accepted. Approved by the maintainer on 2026-09-24. Inert until the maintainer applies the enforcement described under Consequences and the prerequisites in condition 1 exist.
 
 ## Context
 
