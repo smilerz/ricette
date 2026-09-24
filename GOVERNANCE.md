@@ -64,7 +64,10 @@ protected like code. Once the repository is on GitHub, sensitive paths
 (including this document, `AGENTS.md`, `PROVENANCE.md`, `LICENSE*`,
 `SECURITY.md`, `CONTRIBUTING.md`, `docs/adr/**`, `docs/security/**`, and
 `.claude/**`) are protected via `CODEOWNERS` — see `CONTRIBUTING.md` and
-ADR-0018.
+ADR-0018. (`.claude/**` is currently gitignored — see
+`IMPLEMENTATION_PLAN.md`'s "Auto-mode enforcement split" reversal note —
+so this protection is presently moot for that path specifically; it
+applies once/if something under `.claude/` is tracked again.)
 
 ## Architecture Decision Records
 

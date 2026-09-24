@@ -28,5 +28,7 @@ Thumbs.db
 *.sqlite
 *.sqlite-journal
 
-# Claude Code local overrides (never commit personal permission overrides)
-.claude/settings.local.json
+# Claude Code state — local only, not shared/reviewed as project governance
+# (reverses the earlier decision to commit .claude/settings.json; see
+# IMPLEMENTATION_PLAN.md "Auto-mode enforcement split" for the history)
+.claude/
