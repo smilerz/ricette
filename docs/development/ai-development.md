@@ -50,14 +50,11 @@ requires human review before merge.
 
 ## Current status
 
-Neither reviewer is built yet, but they are no longer on equal footing.
-The **local reviewer (ADR-0011)** is the mandatory next harness
-milestone: implement and verify it once reviewed Foundation governance
-reaches trusted `main`, and before substantive application implementation
-begins. The **PR reviewer (ADR-0019)** remains deferred until GitHub/PR
-infrastructure actually exists — that's a separate, later system. See
-`IMPLEMENTATION_PLAN.md` Phase 3a and Phase 3b for exactly what is and
-isn't done.
+The **local reviewer (ADR-0011)** will not be built: ADR-0022 supersedes
+it, and the maintainer uses their own local harness, which this project
+does not specify. The **PR reviewer (ADR-0019)** is not built yet; it is
+the project's AI review of every PR. See `IMPLEMENTATION_PLAN.md` Phase 3b
+for what is and isn't done.
 
 ## AI-on-AI review
 

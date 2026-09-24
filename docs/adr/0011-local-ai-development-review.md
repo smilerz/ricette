@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Implementation is the **mandatory next harness milestone**: build and verify this reviewer once reviewed Foundation governance reaches trusted `main`, and before substantive application implementation begins (see `IMPLEMENTATION_PLAN.md` Phase 3a). Not yet implemented as of this writing.
+Superseded by ADR-0022 (2026-09-24). The maintainer decided not to implement this reviewer and to use their existing local harness instead, so nothing described below was built or will be built. The text is retained as the historical record of the design.
 
 **Revision note (2026-08-29):** this ADR originally specified an external OpenAI-based reviewer (two model roles, a narrow credential-isolated service). That mechanism has been replaced with a dedicated, user-level Claude Code subagent reviewer — see "Mechanism" and "Alternatives Considered" below for why. The requirement weakens from "independent second-model review" to **"independent fresh-context review with separately controlled instructions, tools, and authority"** — model/provider diversity is desirable, not fundamental, for this specific (personal, non-adversarial) reviewer. ADR-0019's PR reviewer is unaffected by this change and keeps its cross-vendor design; see "Relationship to ADR-0019."
 
@@ -422,3 +422,5 @@ section added; and now the reviewer mechanism itself changed from an
 external OpenAI service to a dedicated Claude Code subagent) rather than
 superseded, since each revision refined the same underlying decision
 rather than replacing it.
+
+Superseded by ADR-0022, which records the decision not to build this reviewer.
