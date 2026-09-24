@@ -117,9 +117,9 @@ This step should be run again after any change to either settings file or the ev
 - [x] Design Layer 2: independent PR semantic reviewer — see ADR-0019 for full specification. Design complete; implementation tracked in Phase 3b.
 - [x] Encode AI-on-AI review checklist into `AGENTS.md`, referenced by both ADR-0011 and ADR-0019 (§20, §22).
 
-### Phase 3a — Local harness reviewer (personal productivity harness, feeds ADR-0011) — [A]
+### Phase 3a — Local harness reviewer (personal productivity harness, feeds ADR-0011) — SUPERSEDED
 
-**MANDATORY NEXT MILESTONE, before Phase 16.** Not project governance — the maintainer's personal development harness, deliberately separate from Phase 3b/ADR-0019 (different authority, audience, policy source, posture).
+**Superseded 2026-09-24 (ADR-0022): the maintainer will not implement these hooks and will use their existing local harness. Removed from the Foundation Gate; the items below are retained as history and will not be built.** Not project governance — the maintainer's personal development harness, deliberately separate from Phase 3b/ADR-0019 (different authority, audience, policy source, posture).
 
 **Design-currentness check performed 2026-09-23** (per explicit instruction, before committing engineering effort to a possibly-superseded design): read `AGENTS.md`, `docs/development/ai-development.md`, ADR-0011, ADR-0019, and the local session-state scratchpad end to end. Finding: the design **was** revised on an unmerged branch (`feature/adr-0011-claude-subagent-reviewer`) — the original external-OpenAI-service mechanism is replaced by a dedicated, user-level Claude Code subagent reviewer (own system prompt, read-only tools, invoked via `command`-type hooks shelling out to `claude -p`, no MCP server, no external credential/service-isolation concern). ADR-0011 itself documents this as a revision, not a supersession ("Supersession: None... revised in place"), and is now folded into this branch. **No further design change found necessary** — the revised design is internally consistent with ADR-0019 and `AGENTS.md`, and no contradiction was found. Proceeding to build the revised design, not the original one.
 
