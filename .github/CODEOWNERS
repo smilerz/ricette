@@ -1,7 +1,6 @@
 # Governance and security-sensitive paths (Foundation 0 §24).
-# Application-specific paths (composer.json, lockfiles, database/migrations/**,
-# authentication/authorization/entitlement/billing code, deployment
-# configuration) are added by the first Application Foundation PR.
+# Authentication, authorization, entitlement and billing paths are added
+# together with the code that introduces them.
 /.github/**         @smilerz
 /AGENTS.md          @smilerz
 /GOVERNANCE.md      @smilerz
@@ -11,3 +10,15 @@
 /CONTRIBUTING.md    @smilerz
 /docs/adr/**        @smilerz
 /docs/security/**   @smilerz
+
+# Dependency manifests and lockfiles
+/composer.json      @smilerz
+/composer.lock      @smilerz
+/package.json       @smilerz
+/pnpm-lock.yaml     @smilerz
+
+# Schema and deployment configuration
+/database/migrations/**  @smilerz
+/Dockerfile         @smilerz
+/.dockerignore      @smilerz
+/docker/**          @smilerz
