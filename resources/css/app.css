@@ -1,0 +1,27 @@
+:root {
+    color-scheme: light dark;
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+}
+
+body {
+    margin: 0;
+}
+
+main {
+    max-inline-size: 40rem;
+    margin-inline: auto;
+    padding: 2rem 1rem;
+}
+
+:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
