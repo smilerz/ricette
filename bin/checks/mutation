@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Selective mutation testing of critical pure logic (Foundation 0 §47).
+# Extend the --class list as units, quantities, entitlements and permission
+# predicates arrive. Needs a PHP coverage driver (pcov or xdebug).
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+vendor/bin/pest --colors=never --mutate --covered-only --min=80 --class='App\Support\Translations'

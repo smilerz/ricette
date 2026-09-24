@@ -4,30 +4,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-fail=0
-step() {
-  local name=$1
-  shift
-  echo "-- $name"
-  if ! "$@"; then
-    echo "FAILED: $name" >&2
-    fail=1
-  fi
-}
-
-# py_tool <package> <version> <command> [args...]
-py_tool() {
-  local pkg=$1 ver=$2 cmd=$3
-  shift 3
-  if command -v uvx >/dev/null 2>&1; then
-    uvx --from "$pkg==$ver" "$cmd" "$@"
-  elif command -v pipx >/dev/null 2>&1; then
-    pipx run --spec "$pkg==$ver" "$cmd" "$@"
-  else
-    echo "need uvx or pipx to run $cmd" >&2
-    return 127
-  fi
-}
+# shellcheck source=bin/lib.sh
+source bin/lib.sh
 
 lint_markdown() { npx --yes markdownlint-cli2@0.23.3; }
 
@@ -46,7 +24,7 @@ lint_json() {
       echo "not valid, 2-space-formatted JSON: $f (run ./bin/format)" >&2
       rc=1
     fi
-  done < <(git ls-files '*.json')
+  done < <(git ls-files '*.json' ':!:composer.json' ':!:composer.lock')
   return $rc
 }
 
@@ -60,7 +38,7 @@ lint_actions() {
 
 lint_spelling() {
   local files
-  files=$(git ls-files)
+  files=$(git ls-files ':!:composer.lock' ':!:pnpm-lock.yaml' ':!:docs/architecture/foundation-0-design-baseline.md')
   # shellcheck disable=SC2086
   py_tool codespell 2.4.3 codespell --config .codespellrc $files
 }
@@ -71,4 +49,4 @@ step json lint_json
 step github-actions lint_actions
 step spelling lint_spelling
 
-exit $fail
+steps_result

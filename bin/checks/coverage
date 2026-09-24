@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Coverage floors and changed-code coverage (Foundation 0 §45, docs/development/testing.md).
+#   PHP:      global lines >= 85%, changed lines >= 95%
+#   Frontend: global lines/statements >= 85%, branches >= 80% (vite.config.ts), changed lines >= 95%
+# Needs a PHP coverage driver (pcov or xdebug) and the base ref for changed-code coverage.
+#   COVERAGE_BASE  base ref for changed-code coverage (default: origin/main)
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+# shellcheck source=bin/lib.sh
+source bin/lib.sh
+
+base=${COVERAGE_BASE:-origin/main}
+mkdir -p coverage
+
+diff_cover() { py_tool diff-cover 10.6.0 diff-cover "$1" --compare-branch="$base" --fail-under=95; }
+
+step php-coverage vendor/bin/pest --colors=never --coverage --min=85 --coverage-clover=coverage/php-clover.xml
+step js-coverage pnpm exec vitest run --coverage --coverage.reporter=text --coverage.reporter=cobertura --coverage.reportsDirectory=coverage/js
+step php-changed-code diff_cover coverage/php-clover.xml
+step js-changed-code diff_cover coverage/js/cobertura-coverage.xml
+steps_result
