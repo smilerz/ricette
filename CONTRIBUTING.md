@@ -16,9 +16,8 @@ Signed-off-by: Your Name <your.email@example.com>
 ```
 
 Add it with `git commit -s`. Pull requests without sign-off on every commit
-must not be merged. **Current status: no CI exists yet to enforce this
-mechanically** (see `IMPLEMENTATION_PLAN.md`); until the DCO check is
-provisioned, sign-off is verified manually by whoever reviews the PR.
+must not be merged. The `dco` check (`./bin/verify dco`) enforces this on
+every pull request.
 
 The DCO confirms you have the right to submit your work under this
 project's license. It does **not** give the project unilateral rights to
