@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Apply the repository's automatic formatting (Foundation 0 §31). Mirrors the
+# formatters that `./bin/verify lint` checks.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+npx --yes markdownlint-cli2@0.23.3 --fix
+
+while IFS= read -r f; do
+  tmp=$(mktemp)
+  jq --indent 2 . "$f" >"$tmp" && mv "$tmp" "$f"
+done < <(git ls-files '*.json')

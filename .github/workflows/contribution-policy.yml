@@ -1,0 +1,23 @@
+name: contribution-policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  contribution-policy:
+    name: contribution-policy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: ./bin/verify contribution-policy
+        env:
+          CP_BASE: ${{ github.event.pull_request.base.sha }}
+          CP_HEAD: ${{ github.event.pull_request.head.sha }}
+          CP_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

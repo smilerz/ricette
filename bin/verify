@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Canonical verification entry point (Foundation 0 §31-32). CI invokes these
+# same targets; there is no separate CI-only command.
+#
+#   ./bin/verify                      run every target
+#   ./bin/verify <target>...          run selected targets
+#
+# Targets: lint  dco  contribution-policy  selftest
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+ALL=(lint dco contribution-policy selftest)
+targets=("$@")
+[ ${#targets[@]} -eq 0 ] && targets=("${ALL[@]}")
+
+run_target() {
+  case "$1" in
+    lint) bin/checks/lint ;;
+    dco) bin/checks/dco ;;
+    contribution-policy) bin/checks/contribution-policy ;;
+    selftest) tests/bin/run.sh ;;
+    *) echo "unknown target: $1 (targets: ${ALL[*]})" >&2; return 2 ;;
+  esac
+}
+
+failed=()
+for t in "${targets[@]}"; do
+  echo "=== verify: $t"
+  if ! run_target "$t"; then failed+=("$t"); fi
+done
+
+if [ ${#failed[@]} -gt 0 ]; then
+  echo "verify FAILED: ${failed[*]}" >&2
+  exit 1
+fi
+echo "verify OK"

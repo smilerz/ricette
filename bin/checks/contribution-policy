@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Contribution contract check (Foundation 0 §25-29, §48): a behavioral change
+# needs tests and documentation; user-facing changes need translation keys.
+# exception:no-test / exception:no-doc are maintainer-applied labels.
+#   CP_BASE / CP_HEAD  range to check (default: origin/main...HEAD)
+#   CP_LABELS          comma-separated PR label names
+set -euo pipefail
+cd "${CHECK_REPO:-$(dirname "${BASH_SOURCE[0]}")/../..}"
+
+base=${CP_BASE:-origin/main}
+head=${CP_HEAD:-HEAD}
+labels=",${CP_LABELS:-},"
+
+# Path classes. Extended by the Application Foundation PR as the layout appears.
+is_behavioral() { case $1 in app/*|src/*|routes/*|database/*|resources/*|config/*|docker/*|Dockerfile) return 0 ;; esac; return 1; }
+is_user_facing() { case $1 in resources/js/*|resources/views/*|resources/css/*) return 0 ;; esac; return 1; }
+is_test() { case $1 in tests/*|*.test.*|*.spec.*) return 0 ;; esac; return 1; }
+is_doc() { case $1 in docs/*|*.md) return 0 ;; esac; return 1; }
+is_translation() { case $1 in lang/*|resources/lang/*) return 0 ;; esac; return 1; }
+
+behavioral=0 user_facing=0 tests=0 docs=0 translations=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  is_behavioral "$f" && behavioral=1
+  is_user_facing "$f" && user_facing=1
+  is_test "$f" && tests=1
+  is_doc "$f" && docs=1
+  is_translation "$f" && translations=1
+done < <(git diff --name-only "$base...$head")
+
+fail=0
+if [ $behavioral -eq 1 ]; then
+  if [ $tests -eq 0 ] && [[ $labels != *",exception:no-test,"* ]]; then
+    echo "behavioral change without tests (exception:no-test is maintainer-applied)" >&2
+    fail=1
+  fi
+  if [ $docs -eq 0 ] && [[ $labels != *",exception:no-doc,"* ]]; then
+    echo "behavioral change without documentation (exception:no-doc is maintainer-applied)" >&2
+    fail=1
+  fi
+fi
+if [ $user_facing -eq 1 ] && [ $translations -eq 0 ]; then
+  echo "user-facing change without translation keys" >&2
+  fail=1
+fi
+
+[ $fail -eq 0 ] && echo "contribution-policy: ok"
+exit $fail

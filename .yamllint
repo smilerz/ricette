@@ -1,0 +1,9 @@
+extends: default
+rules:
+  line-length:
+    max: 200
+  truthy:
+    check-keys: false # `on:` in GitHub workflows
+  document-start: disable
+  comments:
+    min-spaces-from-content: 1

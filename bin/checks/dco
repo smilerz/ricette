@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# DCO 1.1 sign-off enforcement (Foundation 0 §10). Every non-merge commit in
+# the range must carry a Signed-off-by trailer.
+#   DCO_BASE / DCO_HEAD  range to check (default: origin/main..HEAD)
+set -euo pipefail
+cd "${CHECK_REPO:-$(dirname "${BASH_SOURCE[0]}")/../..}"
+
+base=${DCO_BASE:-origin/main}
+head=${DCO_HEAD:-HEAD}
+
+missing=0
+while IFS= read -r sha; do
+  [ -z "$sha" ] && continue
+  if ! git log -1 --format=%B "$sha" | git interpret-trailers --parse | grep -Eq '^Signed-off-by: .+ <.+>$'; then
+    echo "missing Signed-off-by: $(git log -1 --format='%h %s' "$sha")" >&2
+    missing=1
+  fi
+done < <(git rev-list --no-merges "$base..$head")
+
+if [ $missing -ne 0 ]; then
+  echo "Every commit must be signed off (use the -s flag when committing). See CONTRIBUTING.md." >&2
+  exit 1
+fi
+echo "dco: all commits in $base..$head are signed off"
