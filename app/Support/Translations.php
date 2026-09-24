@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\File;
 use JsonException;
 use RuntimeException;
 
@@ -65,12 +66,6 @@ final class Translations
             return [];
         }
 
-        $contents = file_get_contents($path);
-
-        if ($contents === false) {
-            throw new RuntimeException("Unable to read translation file [{$path}].");
-        }
-
-        return self::parse($contents, $path);
+        return self::parse(File::get($path), $path);
     }
 }
