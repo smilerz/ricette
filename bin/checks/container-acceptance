@@ -2,8 +2,8 @@
 # Deployment acceptance tests against the built image (MVP deploy/boot requirements).
 #   ./bin/verify container-acceptance            builds nothing; expects the image in IMAGE (default ricette:ci)
 #
-# 1. SQLite: a fresh volume reaches the current schema with no manual step, and the
-#    schema survives a container restart.
+# 1. SQLite: a fresh volume reaches the current schema with no manual step, and both the
+#    schema and application data survive a container restart.
 # 2. PostgreSQL: the application starts before the database, retries until it is up,
 #    and then migrates.
 # 3. Reverse proxy: forwarded headers are ignored unless TRUSTED_PROXIES trusts the peer.
@@ -59,9 +59,22 @@ out=$(migrations_pending "$c")
 echo "$out" | grep -qi "no pending migrations" || fail "migrations pending after boot: $out"
 ran_before=$(docker exec "$c" php artisan migrate:status 2>&1 | grep -c "Ran" || true)
 [ "$ran_before" -gt 0 ] || fail "no migrations were applied"
+# Application state, not just the schema, must survive a restart (persistence across restart, #68).
+docker exec -i "$c" php <<'PHP' || fail "could not write test data into the SQLite volume"
+<?php
+$pdo = new PDO('sqlite:/data/database.sqlite');
+$pdo->exec("insert into households (name, created_at, updated_at) values ('persistence-check', datetime('now'), datetime('now'))");
+PHP
 docker restart "$c" >/dev/null
 wait_for_up "$c" 60 || fail "SQLite container did not serve /up after restart"
 ran_after=$(docker exec "$c" php artisan migrate:status 2>&1 | grep -c "Ran" || true)
+kept=$(docker exec -i "$c" php <<'PHP'
+<?php
+$pdo = new PDO('sqlite:/data/database.sqlite');
+echo $pdo->query("select count(*) from households where name = 'persistence-check'")->fetchColumn();
+PHP
+)
+[ "$kept" = "1" ] || fail "application data did not survive the restart (found: $kept)"
 [ "$ran_before" = "$ran_after" ] || fail "schema changed across restart ($ran_before -> $ran_after)"
 
 echo "== 2. PostgreSQL: the application starts first, waits, then migrates"

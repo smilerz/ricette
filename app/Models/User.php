@@ -8,6 +8,7 @@ use App\Support\EmailAddress;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 final class User extends Authenticatable
@@ -40,5 +41,13 @@ final class User extends Authenticatable
         return Attribute::make(
             set: static fn (string $value): string => EmailAddress::normalize($value),
         );
+    }
+
+    /**
+     * @return HasMany<Membership, $this>
+     */
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(Membership::class);
     }
 }

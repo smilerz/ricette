@@ -31,3 +31,7 @@
 /config/auth.php                        @smilerz
 /config/fortify.php                     @smilerz
 /config/hashing.php                     @smilerz
+/app/Support/ActiveHousehold.php   @smilerz
+/app/Actions/Households/**         @smilerz
+/app/Models/Household.php          @smilerz
+/app/Models/Membership.php         @smilerz

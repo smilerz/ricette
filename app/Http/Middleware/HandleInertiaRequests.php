@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\ActiveHousehold;
 use App\Support\Translations;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -24,6 +25,7 @@ final class HandleInertiaRequests extends Middleware
         $fallback = config()->string('app.fallback_locale');
 
         $user = $request->user();
+        $membership = ActiveHousehold::membership($request);
 
         return [
             ...parent::share($request),
@@ -31,6 +33,11 @@ final class HandleInertiaRequests extends Middleware
                 'user' => $user instanceof User
                     ? ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]
                     : null,
+            ],
+            'household' => $membership === null ? null : [
+                'id' => $membership->household_id,
+                'name' => $membership->household->name,
+                'role' => $membership->role->value,
             ],
             'locale' => $locale,
             'fallbackLocale' => $fallback,
