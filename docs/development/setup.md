@@ -5,7 +5,7 @@ The application is Laravel 13 with Svelte 5 and Inertia 3 (ADR-0002, ADR-0003).
 ## Requirements
 
 - PHP 8.4 with the `pdo_sqlite`, `pdo_pgsql`, `intl`, `zip` and `mbstring` extensions, and Composer 2
-- Node 22 or newer and pnpm (ADR-0020; the exact version is pinned in `package.json`)
+- Node 25 (what CI and the container image use; 22 or newer works) and pnpm (ADR-0020; the exact version is pinned in `package.json`)
 - `uvx` or `pipx`, `jq`, and `npx` for the repository-wide checks
 - A PHP coverage driver (`pcov` or `xdebug`) to run the coverage and mutation checks locally
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. The maintainer approved the direction and the ICU MessageFormat format on 2026-09-25 and asked to review this text before accepting it.
+Accepted. Decided by the maintainer on 2026-09-25 (ICU MessageFormat, with framework and server messages routed through the same catalogs).
 
 ## Context
 
