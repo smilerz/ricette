@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@formatjs/icu-messageformat-parser": "^3.5.20",
     "@playwright/test": "^1.63.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@testing-library/jest-dom": "^7.0.1",
@@ -33,7 +34,8 @@
   },
   "dependencies": {
     "@inertiajs/core": "^3.7.1",
-    "@inertiajs/svelte": "^3.7.1"
+    "@inertiajs/svelte": "^3.7.1",
+    "intl-messageformat": "^12.1.2"
   },
   "scripts": {
     "build": "vite build",

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { baseKey, main, pseudoLocalize, usedKeys, validate, writePseudoLocale } from './i18n.mjs';
+import { analyze, main, pseudoLocalize, usedKeys, validate, writePseudoLocale } from './i18n.mjs';
 
 let root: string;
 
@@ -24,23 +24,44 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 
-describe('baseKey', () => {
-    it('strips a plural category suffix only', () => {
-        expect(baseKey('items.one')).toBe('items');
-        expect(baseKey('items.other')).toBe('items');
-        expect(baseKey('home.title')).toBe('home.title');
+describe('analyze', () => {
+    it('reports the arguments a message takes and their kinds', () => {
+        const { args, problems } = analyze(
+            'Hi {name}, {count, plural, one {# item} other {# items}} {when, date} <b>{x}</b>',
+            'en',
+        );
+
+        expect([...args].sort()).toEqual(
+            ['count:plural', 'name:argument', 'when:date', 'b:tag', 'x:argument'].sort(),
+        );
+        expect(problems).toEqual([]);
+    });
+
+    it('reports a message that is not valid ICU', () => {
+        expect(analyze('Hello {name', 'en').problems[0]).toContain('invalid ICU message');
+    });
+
+    it('requires every plural category the language uses', () => {
+        const { problems } = analyze('{n, plural, one {a} other {b}}', 'pl');
+
+        expect(problems).toEqual(['plural "n" for pl needs categories: few, many']);
+    });
+
+    it('accepts a plural that covers the language categories', () => {
+        expect(analyze('{n, plural, one {a} few {b} many {c} other {d}}', 'pl').problems).toEqual(
+            [],
+        );
+    });
+
+    it('does not require categories for ordinals', () => {
+        expect(analyze('{n, selectordinal, one {#st} other {#th}}', 'en').problems).toEqual([]);
     });
 });
 
 describe('validate', () => {
     it('accepts consistent catalogs', () => {
-        catalog('en', { 'a.title': 'Title', 'n.one': '{count} item', 'n.other': '{count} items' });
-        catalog('de', {
-            'a.title': 'Titel',
-            'n.one': '{count} Ding',
-            'n.other': '{count} Dinge',
-            'n.few': '{count} Dinge',
-        });
+        catalog('en', { 'a.title': 'Title', n: '{count, plural, one {# item} other {# items}}' });
+        catalog('de', { 'a.title': 'Titel', n: '{count, plural, one {# Ding} other {# Dinge}}' });
 
         expect(validate(root)).toEqual([]);
     });
@@ -69,6 +90,12 @@ describe('validate', () => {
         expect(validate(root)).toContain('fr.json: must be a JSON object');
     });
 
+    it('reports invalid ICU messages', () => {
+        catalog('en', { a: 'Hello {name' });
+
+        expect(validate(root).join('\n')).toContain('en.json: "a": invalid ICU message');
+    });
+
     it('reports missing and unknown keys', () => {
         catalog('en', { a: 'A', b: 'B' });
         catalog('de', { a: 'A', c: 'C' });
@@ -79,13 +106,27 @@ describe('validate', () => {
         expect(problems).toContain('de.json: unknown key "c" (not in en.json)');
     });
 
-    it('reports placeholders the reference does not define', () => {
+    it('reports arguments that differ from the reference', () => {
         catalog('en', { greet: 'Hello, {name}' });
         catalog('de', { greet: 'Hallo, {person}' });
 
-        expect(validate(root)).toContain(
-            'de.json: "greet" uses placeholders that en.json does not',
+        expect(validate(root)).toContain('de.json: "greet" takes different arguments than en.json');
+    });
+
+    it('reports a plural that lacks a category the language needs', () => {
+        catalog('en', { n: '{c, plural, one {# a} other {# b}}' });
+        catalog('pl', { n: '{c, plural, one {# a} other {# b}}' });
+
+        expect(validate(root).join('\n')).toContain(
+            'plural "c" for pl needs categories: few, many',
         );
+    });
+
+    it('checks a translation against a reference that sorts after it', () => {
+        catalog('de', { greet: 'Hallo, {person}' });
+        catalog('en', { greet: 'Hello, {name}' });
+
+        expect(validate(root)).toContain('de.json: "greet" takes different arguments than en.json');
     });
 
     it('reports a key used in source but missing from the reference', () => {
@@ -116,7 +157,7 @@ describe('validate', () => {
 });
 
 describe('usedKeys', () => {
-    it('finds plural keys by their base and tolerates missing directories', () => {
+    it('finds keys and tolerates missing directories', () => {
         write('resources/js/a.ts', "t('items', { count: 2 })");
 
         expect([...usedKeys(root).keys()]).toEqual(['items']);
@@ -124,12 +165,21 @@ describe('usedKeys', () => {
 });
 
 describe('pseudoLocalize', () => {
-    it('accents letters, pads and brackets while preserving placeholders', () => {
-        expect(pseudoLocalize('Hi {name}!')).toBe('[Ĥí {name}!~~~~]');
+    it('accents literal text, pads and brackets while preserving arguments', () => {
+        expect(pseudoLocalize('Hi {name}!')).toBe('[Ĥí {name}!~~]');
+    });
+
+    it('accents the text inside plural and select branches only', () => {
+        expect(pseudoLocalize('{n, plural, one {# item} other {# items}}')).toBe(
+            '[{n, plural, one {# íţéɱ} other {# íţéɱš}}~~~~~]',
+        );
+        expect(pseudoLocalize('{k, select, a {yes} other {no}}')).toBe(
+            '[{k, select, a {ýéš} other {ñó}}~~]',
+        );
     });
 
     it('forces right-to-left when asked', () => {
-        expect(pseudoLocalize('a', { rtl: true })).toBe('‮[á~]‬');
+        expect(pseudoLocalize('a', { rtl: true })).toBe('\u202e[á~]\u202c');
     });
 
     it('leaves characters without a mapping alone', () => {
