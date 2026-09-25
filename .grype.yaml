@@ -3,10 +3,17 @@
 # workflow). Unfixed base-image findings are still printed in the scan log.
 #
 # Accepted findings need a reason and are removed when the base image ships a fix.
+# gRPC-Go is vendored inside the FrankenPHP/Caddy binary and used by its
+# OpenTelemetry exporters as a client. The image does not run a gRPC or xDS
+# server, which is what each advisory below requires. Upstream fixes arrive with
+# a FrankenPHP release; Dependabot proposes the image bump.
 ignore:
-  # gRPC-Go xDS servers: DoS via missing :authority/Host headers. The module is
-  # vendored inside the FrankenPHP/Caddy binary, which does not run an xDS server.
-  # Fixed by an upstream FrankenPHP release; Dependabot proposes the image bump.
-  - vulnerability: GHSA-2v4p-qf9q-27wj
+  - vulnerability: GHSA-2v4p-qf9q-27wj # xDS servers: DoS via missing :authority/Host headers
+    package:
+      name: google.golang.org/grpc
+  - vulnerability: GHSA-vp52-pcj8-j9qc # HTTP/2 DATA frame fragmentation OOM
+    package:
+      name: google.golang.org/grpc
+  - vulnerability: GHSA-hrxh-6v49-42gf # xDS RBAC and HTTP/2 vulnerabilities
     package:
       name: google.golang.org/grpc
