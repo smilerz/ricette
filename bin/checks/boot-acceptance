@@ -83,10 +83,17 @@ wait_for_up "$app" 120 || fail "application did not start after the database cam
 docker logs "$app" 2>&1 | grep -q "Database not ready" || fail "no retry was logged while the database was down"
 out=$(migrations_pending "$app")
 echo "$out" | grep -qi "no pending migrations" || fail "migrations pending after boot: $out"
-if docker exec "$app" cat /proc/1/environ | tr '\0' '\n' | grep -q '^DB_MIGRATION_'; then
-  fail "the running server still holds the migration credentials"
+# The entrypoint hands over to its arguments once the schema is ready; running `env` in place of
+# the server shows exactly what the server process would receive.
+handover=$(docker run --rm --network "$net" \
+  -e APP_KEY="$APP_KEY" -e DB_CONNECTION=pgsql -e DB_HOST="$db" -e DB_PORT=5432 -e DB_DATABASE=ricette \
+  -e DB_USERNAME=ricette_app -e DB_PASSWORD=app \
+  -e DB_MIGRATION_USERNAME=ricette_migrator -e DB_MIGRATION_PASSWORD=migrator \
+  "$IMAGE" env) || fail "the entrypoint did not reach the hand-over on an already migrated database"
+echo "$handover" | grep -q '^DB_USERNAME=ricette_app$' || fail "the server would not run with the runtime credentials"
+if echo "$handover" | grep -q '^DB_MIGRATION_'; then
+  fail "the server would still hold the migration credentials"
 fi
-docker exec "$app" cat /proc/1/environ | tr '\0' '\n' | grep -q '^DB_USERNAME=ricette_app$' || fail "the server does not run with the runtime credentials"
 if docker exec -e PGPASSWORD=app "$db" psql -U ricette_app -d ricette -c 'CREATE TABLE forbidden (id int)' >/dev/null 2>&1; then
   fail "the runtime role can alter the schema"
 fi
