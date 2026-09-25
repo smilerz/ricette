@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Frontend assets -------------------------------------------------------
-FROM node:24-slim AS assets
+FROM node:25-slim AS assets
 RUN npm install --global pnpm@12.6.0
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
