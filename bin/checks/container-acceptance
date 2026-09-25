@@ -39,7 +39,7 @@ wait_for_up() { # wait_for_up <container> <seconds>
   local port
   port=$(host_port "$1")
   for _ in $(seq 1 "$2"); do
-    if curl -fsS "http://127.0.0.1:$port/up" >/dev/null 2>&1; then return 0; fi
+    if curl -fsS --max-time 5 "http://127.0.0.1:$port/up" >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
   docker logs "$1" >&2 || true
@@ -113,7 +113,7 @@ docker run -d --name "$app" --network "$net" -p 127.0.0.1::8080 \
   -e DB_USERNAME=ricette -e DB_PASSWORD=ricette -e DB_WAIT_TIMEOUT=120 "$IMAGE" >/dev/null
 sleep 8
 port=$(host_port "$app")
-if curl -fsS "http://127.0.0.1:$port/up" >/dev/null 2>&1; then fail "application served before the database existed"; fi
+if curl -fsS --max-time 5 "http://127.0.0.1:$port/up" >/dev/null 2>&1; then fail "application served before the database existed"; fi
 docker run -d --name "$db" --network "$net" \
   -e POSTGRES_USER=ricette -e POSTGRES_PASSWORD=ricette -e POSTGRES_DB=ricette postgres:17 >/dev/null
 wait_for_up "$app" 120 || fail "application did not start after the database came up"
