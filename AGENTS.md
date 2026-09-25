@@ -168,6 +168,28 @@ satisfied by ADR-0011's local reviewer alone.
   auto-mode hard-deny policy (`IMPLEMENTATION_PLAN.md`, "Auto-mode
   enforcement split").
 
+## Decision authority
+
+Follow ADR-0027. **Routine implementation choices are yours** when they are consistent with authoritative
+requirements and accepted decisions, stay inside the Issue's acceptance envelope, and do not materially alter
+product behavior, architecture, security or privacy posture, operator obligations, persistent data or
+interfaces, governance, or future architectural optionality.
+
+**Stop, present the alternatives with a recommendation and the trade-offs, and wait for the maintainer, before
+implementing** a choice that has not been authorized and that materially establishes or changes:
+
+- product or user-visible behavior where the requirements leave a meaningful trade-off open;
+- application or deployment architecture;
+- major frameworks, runtimes, infrastructure services or persistent dependencies;
+- security, privacy, trust, authentication or authorization posture;
+- what an operator must deploy, provision or configure;
+- persistent data models, or shared or external interfaces, with meaningful migration or compatibility cost;
+- governance, authority or enforcement policy;
+- anything expensive or difficult to reverse.
+
+If you are unsure whether a choice is material, treat it as material. An ADR you write is **Proposed**; it does
+not authorize implementing what it proposes, and it becomes Accepted only when the maintainer says so.
+
 ## Agent merge exception
 
 ADR-0021 permits an agent to merge a PR **it authored** only when every one
