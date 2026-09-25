@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Support\DatabaseWaiter;
 
 covers(DatabaseWaiter::class);
+mutates(DatabaseWaiter::class);
 
 /**
  * A fake clock that only advances when the waiter sleeps.

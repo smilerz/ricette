@@ -6,6 +6,7 @@ use App\Support\TrustedProxies;
 use Symfony\Component\HttpFoundation\Request;
 
 covers(TrustedProxies::class);
+mutates(TrustedProxies::class);
 
 it('trusts no proxy when the setting is absent or blank', function (?string $value): void {
     expect(TrustedProxies::fromEnvironment($value))->toBeNull();
