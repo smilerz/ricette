@@ -168,6 +168,23 @@ satisfied by ADR-0011's local reviewer alone.
   auto-mode hard-deny policy (`IMPLEMENTATION_PLAN.md`, "Auto-mode
   enforcement split").
 
+## Decision authority
+
+Deciding how to build something is not always yours to decide (ADR-0027). Stay inside the Issue's
+acceptance criteria and existing decisions on your own. **Stop and present options, with a recommendation and
+the trade-offs, and wait for the maintainer, before building, if a choice:**
+
+- adds or replaces a runtime, framework, service, package or other dependency (apply the dependency policy
+  first: framework, then mature package, then custom code);
+- picks among ways to satisfy a requirement the Issue marks as open;
+- sets security or privacy posture (privilege boundaries, what an error reveals, password rules);
+- changes what a self-hosting operator must provision, configure or run;
+- shapes data, schema or interfaces that later Issues depend on;
+- changes a governance file or a check that gates merging.
+
+If you are unsure whether a choice is on this list, treat it as if it were. An ADR you write is **Proposed**;
+it becomes Accepted only when the maintainer says so, and it does not authorize the work it describes.
+
 ## Agent merge exception
 
 ADR-0021 permits an agent to merge a PR **it authored** only when every one
