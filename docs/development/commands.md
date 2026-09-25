@@ -16,7 +16,7 @@ added to this script rather than to a parallel command.
 ./bin/verify frontend               Prettier, ESLint, svelte-check + tsc, Vitest, translations
 ./bin/verify dockerfile             Dockerfile lint
 ./bin/verify composer-audit         known-vulnerability audit (Composer and pnpm)
-./bin/verify coverage               coverage floors and changed-code coverage
+./bin/verify coverage               coverage floors and changed-code coverage (coverage-php and coverage-js run one side)
 ./bin/verify mutation               selective mutation testing
 ./bin/verify container-acceptance        deployment acceptance tests against the built image (needs Docker)
 ./bin/format                        apply automatic formatting
@@ -36,14 +36,14 @@ inside the scripts. The PHP and frontend targets also need the toolchain in
 | `dco` | Sign-off enforcement (§10); range from `DCO_BASE`/`DCO_HEAD`, default `origin/main..HEAD` | `dco` |
 | `contribution-policy` | Contribution contract (§25-29, §48); range from `CP_BASE`/`CP_HEAD`, labels from `CP_LABELS` | `contribution-policy` |
 | `selftest` | Runs each check against throwaway repositories, including failing cases | `checks-selftest` |
-| `lockfiles` | Lockfiles committed, current, and only one JavaScript package manager | `lockfiles` |
-| `php-static` | Composer validation, Pint, PHPStan level 10 | `php-static` |
-| `php-test` | Pest; SQLite by default, PostgreSQL via `DB_CONNECTION=pgsql` | `php-test (sqlite)`, `php-test (pgsql)` |
-| `frontend` | Prettier, ESLint, svelte-check and tsc, Vitest, translation validation | `frontend` |
-| `dockerfile` | Dockerfile lint | `dockerfile-lint` |
-| `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `dependency-audit` |
-| `coverage` | PHP and frontend coverage floors plus changed-code coverage | `coverage` |
-| `mutation` | Mutation testing of critical pure logic | `mutation` |
+| `lockfiles` | Lockfiles committed, current, and only one JavaScript package manager | `static` |
+| `php-static` | Composer validation, Pint, PHPStan level 10 | `static` |
+| `php-test` | Pest; SQLite by default, PostgreSQL via `DB_CONNECTION=pgsql` | `php-test (sqlite)`, `php-test (pgsql)` (the SQLite job also runs `coverage-php` and `mutation`, so the tests run once) |
+| `frontend` | Prettier, ESLint, svelte-check and tsc, Vitest with coverage, translation validation | `frontend` (also runs `coverage-js`) |
+| `dockerfile` | Dockerfile lint | `static` |
+| `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `static` |
+| `coverage` | PHP and frontend coverage floors plus changed-code coverage | `php-test (sqlite)` and `frontend` |
+| `mutation` | Mutation testing of critical pure logic | `php-test (sqlite)` |
 | `container-acceptance` | Install, upgrade, database-wait and reverse-proxy tests against the built image (`IMAGE`, default `ricette:ci`) | `container-acceptance` |
 
 ## Contribution-policy rules
