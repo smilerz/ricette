@@ -49,6 +49,11 @@ inside the scripts. The PHP and frontend targets also need the toolchain in
 | `mutation` | Mutation testing of critical pure logic | `php-test (sqlite)` |
 | `container-acceptance` | Install, upgrade, database-wait and reverse-proxy tests against the built image (`IMAGE`, default `ricette:ci`) | `container-acceptance` |
 
+The container checks (`container-build`, `container-scan`, `container-acceptance`) always run and always
+report, but on a pull request that changes only documentation, tests or editor settings their steps are
+skipped and they pass in seconds. Everything else builds and tests the image, as does every push to `main`
+and a weekly scheduled run that catches new advisories. The rule is in `container.yml` (the `changes` job).
+
 ## Contribution-policy rules
 
 A change under a behavioral path ([`app/`](../../app/), `src/`, [`routes/`](../../routes/), [`database/`](../../database/),
