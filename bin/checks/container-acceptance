@@ -4,6 +4,7 @@
 #
 # 1. SQLite: a fresh volume reaches the current schema with no manual step, and both the
 #    schema and application data survive a container restart.
+# 1b. Application key: created and stored on first start when none is supplied, and kept across restarts.
 # 2. PostgreSQL: the application starts before the database, retries until it is up,
 #    and then migrates.
 # 3. Reverse proxy: forwarded headers are ignored unless TRUSTED_PROXIES trusts the peer.
@@ -76,6 +77,29 @@ PHP
 )
 [ "$kept" = "1" ] || fail "application data did not survive the restart (found: $kept)"
 [ "$ran_before" = "$ran_after" ] || fail "schema changed across restart ($ran_before -> $ran_after)"
+
+echo "== 1b. Application key: created on first start, kept across a restart, a supplied key is not stored"
+kvol=ricette-accept-key-$suffix
+volumes+=("$kvol")
+docker volume create "$kvol" >/dev/null
+k=ricette-accept-key-$suffix
+containers+=("$k")
+docker run -d --name "$k" -p 127.0.0.1::8080 -v "$kvol:/data" "$IMAGE" >/dev/null
+wait_for_up "$k" 60 || fail "container without APP_KEY did not serve /up"
+key_first=$(docker exec "$k" cat /data/app.key)
+case "$key_first" in base64:?*) ;; *) fail "no application key was created in /data/app.key" ;; esac
+[ "$(docker exec "$k" stat -c %a /data/app.key)" = 600 ] || fail "the key file is not private to its owner"
+docker restart "$k" >/dev/null
+wait_for_up "$k" 60 || fail "container did not serve /up after restart"
+[ "$(docker exec "$k" cat /data/app.key)" = "$key_first" ] || fail "the application key changed across a restart"
+supplied=ricette-accept-supplied-$suffix
+containers+=("$supplied")
+svol=ricette-accept-supplied-$suffix
+volumes+=("$svol")
+docker volume create "$svol" >/dev/null
+docker run -d --name "$supplied" -p 127.0.0.1::8080 -e APP_KEY="$APP_KEY" -v "$svol:/data" "$IMAGE" >/dev/null
+wait_for_up "$supplied" 60 || fail "container with a supplied APP_KEY did not serve /up"
+docker exec "$supplied" test ! -e /data/app.key || fail "a supplied key was also written to the volume"
 
 echo "== 2. PostgreSQL: the application starts first, waits, then migrates"
 net=ricette-accept-net-$suffix

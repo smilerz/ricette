@@ -34,5 +34,7 @@
         {/snippet}
     </Form>
 
-    <p><Link href="/register">{i18n.t('auth.need_account')}</Link></p>
+    {#if page.props.registrationOpen}
+        <p><Link href="/register">{i18n.t('auth.need_account')}</Link></p>
+    {/if}
 </main>

@@ -144,8 +144,10 @@ return [
     |
     */
 
-    'features' => [
-        Features::registration(),
-    ],
+    // Registration is open unless REGISTRATION_ENABLED is set to a false value. Anything that is not a clear
+    // "true" (including an empty or misspelled value) closes it, so a typo never leaves sign-up open.
+    'features' => array_filter([
+        filter_var(env('REGISTRATION_ENABLED', true), FILTER_VALIDATE_BOOLEAN) ? Features::registration() : null,
+    ]),
 
 ];

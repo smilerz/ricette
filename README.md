@@ -23,14 +23,16 @@ You need Docker. Nothing else is installed on your machine.
 ```bash
 git clone https://github.com/smilerz/ricette.git
 cd ricette
-echo "APP_KEY=$(docker compose run --rm --no-deps ricette php artisan key:generate --show)" > .env
 docker compose up -d
 ```
 
-Open <http://localhost:8080> and register an account. The database is created and
-upgraded automatically, and your data lives in the `ricette-data` volume. Keep `.env`: it holds the key that
-protects your sessions. Put the app behind a reverse proxy that handles HTTPS before exposing it to the internet.
-[Deployment](docs/operations/deployment.md) covers PostgreSQL, proxies and upgrades.
+Open <http://localhost:8080> and register an account. The database is created and upgraded automatically, and your
+data lives in the `ricette-data` volume. The container creates its own secret key on first start and keeps it in
+that volume, so protect and back up the volume.
+
+Anyone who can reach the server can register. Once you have your account, set `REGISTRATION_ENABLED=false` to close
+sign-up, and put the app behind a reverse proxy that handles HTTPS before exposing it to the internet.
+[Deployment](docs/operations/deployment.md) covers PostgreSQL, proxies, keys and upgrades.
 
 There is no published image yet, so `docker compose` builds it from this repository.
 
