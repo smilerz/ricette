@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Support\EmailAddress;
 
 covers(EmailAddress::class);
+mutates(EmailAddress::class);
 
 it('normalizes case and surrounding whitespace', function (string $input, string $expected): void {
     expect(EmailAddress::normalize($input))->toBe($expected);
