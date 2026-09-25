@@ -7,7 +7,9 @@
       "command": "./bin/dev",
       "isBackground": true,
       "problemMatcher": {
-        "pattern": { "regexp": "^$" },
+        "pattern": {
+          "regexp": "^$"
+        },
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^dev:",
@@ -21,7 +23,9 @@
       "command": "./bin/dev --seed",
       "isBackground": true,
       "problemMatcher": {
-        "pattern": { "regexp": "^$" },
+        "pattern": {
+          "regexp": "^$"
+        },
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^dev:",

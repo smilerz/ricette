@@ -6,7 +6,9 @@
       "type": "php",
       "request": "launch",
       "port": 9003,
-      "pathMappings": { "${workspaceFolder}": "${workspaceFolder}" }
+      "pathMappings": {
+        "${workspaceFolder}": "${workspaceFolder}"
+      }
     },
     {
       "name": "Browser: http://localhost:8000",
@@ -19,7 +21,10 @@
   "compounds": [
     {
       "name": "Ricette: app + PHP debugger + browser",
-      "configurations": ["PHP: Listen for Xdebug", "Browser: http://localhost:8000"],
+      "configurations": [
+        "PHP: Listen for Xdebug",
+        "Browser: http://localhost:8000"
+      ],
       "preLaunchTask": "Ricette: start dev servers",
       "stopAll": true
     }
