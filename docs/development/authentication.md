@@ -34,9 +34,11 @@ rule gives a friendly error in the common case; a registration that loses a race
 (run in a transaction so it rolls back cleanly on SQLite and PostgreSQL) is turned into the same error instead
 of a server error. A duplicate creates nothing and never overwrites the existing account.
 
-A duplicate registration is told the address cannot be used. The MVP does not hide whether an address is
-registered; account-existence non-disclosure is a later requirement and can change this response without
-changing the database rule.
+A duplicate registration is told the address cannot be used, and a successful registration signs the person
+in. This is the maintainer's explicit product and security decision (2026-09-25), chosen for user experience:
+account enumeration is not a significant threat for this application today. The MVP requirement only demanded
+unique normalized emails, not a particular response. If the threat model changes, non-disclosure can change this
+response without touching the database rule.
 
 ## Error messages
 
