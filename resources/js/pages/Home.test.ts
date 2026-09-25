@@ -12,12 +12,16 @@ const translations = {
     'nav.login': 'Sign in',
     'nav.register': 'Create an account',
     'nav.logout': 'Sign out',
+    'household.current': 'Household: {name} ({role, select, owner {owner} other {member}})',
+    'household.none': "You don't have a household yet.",
+    'nav.household_create': 'Create a household',
 };
 
 function withPage(
     locale: string,
     messages: Record<string, string>,
     user: { id: number; name: string; email: string } | null = null,
+    household: { id: number; name: string; role: 'owner' | 'member' } | null = null,
 ): void {
     Object.assign(page, {
         component: 'Home',
@@ -26,6 +30,7 @@ function withPage(
             fallbackLocale: 'en',
             translations: messages,
             auth: { user },
+            household,
         },
         url: '/',
         version: null,
@@ -64,5 +69,38 @@ describe('Home', () => {
         expect(screen.getByText('Signed in as Ana')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
+    });
+
+    it('shows the active household and role to a signed-in user', () => {
+        withPage(
+            'en',
+            translations,
+            { id: 1, name: 'Ana', email: 'ana@example.com' },
+            { id: 5, name: 'Home', role: 'owner' },
+        );
+        render(Home);
+
+        expect(screen.getByText('Household: Home (owner)')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Create a household' })).not.toBeInTheDocument();
+    });
+
+    it('shows a member role differently from an owner', () => {
+        withPage(
+            'en',
+            translations,
+            { id: 2, name: 'Bo', email: 'bo@example.com' },
+            { id: 5, name: 'Home', role: 'member' },
+        );
+        render(Home);
+
+        expect(screen.getByText('Household: Home (member)')).toBeInTheDocument();
+    });
+
+    it('offers to create a household when the user has none', () => {
+        withPage('en', translations, { id: 1, name: 'Ana', email: 'ana@example.com' });
+        render(Home);
+
+        expect(screen.getByText("You don't have a household yet.")).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Create a household' })).toBeInTheDocument();
     });
 });

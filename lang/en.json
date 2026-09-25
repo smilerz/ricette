@@ -28,5 +28,11 @@
   "auth.failed": "These credentials do not match our records.",
   "auth.password": "The provided password is incorrect.",
   "auth.throttle": "Too many attempts. Please wait a moment and try again.",
-  "validation.max.string": "This value is too long."
+  "validation.max.string": "This value is too long.",
+  "household.create.title": "Create a household",
+  "household.field.name": "Household name",
+  "household.create.submit": "Create household",
+  "household.current": "Household: {name} ({role, select, owner {owner} other {member}})",
+  "household.none": "You don't have a household yet.",
+  "nav.household_create": "Create a household"
 }

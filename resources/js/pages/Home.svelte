@@ -5,6 +5,7 @@
     const page = usePage();
     const i18n = $derived(createTranslator(page.props.translations, page.props.locale));
     const user = $derived(page.props.auth.user);
+    const household = $derived(page.props.household);
 </script>
 
 <svelte:head>
@@ -18,6 +19,12 @@
 
     {#if user}
         <p>{i18n.t('home.greeting', { name: user.name })}</p>
+        {#if household}
+            <p>{i18n.t('household.current', { name: household.name, role: household.role })}</p>
+        {:else}
+            <p>{i18n.t('household.none')}</p>
+            <p><Link href="/households/create">{i18n.t('nav.household_create')}</Link></p>
+        {/if}
         <Form action="/logout" method="post">
             <button type="submit">{i18n.t('nav.logout')}</button>
         </Form>
