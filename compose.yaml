@@ -1,0 +1,16 @@
+# Runs Ricette from this repository with a SQLite database kept in a volume.
+# Put APP_KEY in a .env file next to this one (see docs/operations/deployment.md).
+services:
+  ricette:
+    build: .
+    image: ricette
+    ports:
+      - "8080:8080"
+    environment:
+      APP_KEY: ${APP_KEY:?Set APP_KEY in .env; see docs/operations/deployment.md}
+    volumes:
+      - ricette-data:/data
+    restart: unless-stopped
+
+volumes:
+  ricette-data:

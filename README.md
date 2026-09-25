@@ -5,45 +5,57 @@
 [![Verify](https://github.com/smilerz/ricette/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/verify.yml)
 [![Code scanning](https://img.shields.io/badge/code%20scanning-CodeQL-informational.svg)](https://github.com/smilerz/ricette/security/code-scanning)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/smilerz/ricette)](https://github.com/smilerz/ricette/commits/main)
+[![Open issues](https://img.shields.io/github/issues/smilerz/ricette)](https://github.com/smilerz/ricette/issues)
+![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4.svg)
+![Laravel 13](https://img.shields.io/badge/Laravel-13-ff2d20.svg)
+![Svelte 5](https://img.shields.io/badge/Svelte-5-ff3e00.svg)
 ![Status: early development](https://img.shields.io/badge/status-early%20development-orange.svg)
 
-Ricette is a recipe and meal-planning app you can run yourself. "Ricette" is the Italian word for recipes and is a working name, not a final one.
+Ricette is a self-hostable recipe and meal-planning app. The name is a working title.
 
-It's early. You can sign up, sign in and create a household; recipes, meal plans and shopping lists are what gets built next. Nothing is released yet.
+Today you can register, sign in and create a household. Recipes, meal plans and shopping lists come next. There is no release yet.
 
-The same code will also power a hosted version for people who would rather not run it themselves. Self-hosting stays free and doesn't depend on any outside service.
+## Self-hosting
 
-## Try it
-
-You need PHP, Composer, Node and pnpm. `./bin/setup` checks your machine and tells you what's missing.
+You need Docker. Nothing else is installed on your machine.
 
 ```bash
-./bin/setup
-./bin/dev --seed
+git clone https://github.com/smilerz/ricette.git
+cd ricette
+echo "APP_KEY=$(docker compose run --rm --no-deps ricette php artisan key:generate --show)" > .env
+docker compose up -d
 ```
 
-Then open <http://localhost:8000>. The demo login is `demo@example.com` with the password `correct horse battery staple`.
+Open <http://localhost:8080> and register an account. The database is created and
+upgraded automatically, and your data lives in the `ricette-data` volume. Keep `.env`: it holds the key that
+protects your sessions. Put the app behind a reverse proxy that handles HTTPS before exposing it to the internet.
+[Deployment](docs/operations/deployment.md) covers PostgreSQL, proxies and upgrades.
 
-`./bin/verify` runs every check the project's CI runs. [`docs/development/setup.md`](docs/development/setup.md) has the details, including debugging in VS Code.
+There is no published image yet, so `docker compose` builds it from this repository.
 
-## Built with
+## Developing
 
-Laravel 13 and Svelte 5, connected with Inertia. SQLite by default, PostgreSQL if you prefer it. It ships as a container image. The reasons behind these choices are in [`docs/adr/`](docs/adr/).
+Open the repository in the dev container (VS Code "Reopen in Container", or GitHub Codespaces); it installs
+everything. Then run `./bin/dev --seed` for the app with hot reload at <http://localhost:8000>. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and [docs/development/setup.md](docs/development/setup.md).
+
+## Stack
+
+Laravel 13, Svelte 5 and Inertia 3, on SQLite by default or PostgreSQL. Deployed as a container image. The reasons are in the [ADRs](docs/adr/).
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. Work is tracked as issues on the project board, and a change should start from one. Every commit needs a sign-off (the `-s` flag when you commit); we use the Developer Certificate of Origin instead of a contributor agreement.
-
-Questions are in [`SUPPORT.md`](SUPPORT.md). Security problems are in [`SECURITY.md`](SECURITY.md); please don't report those as public issues.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Work is tracked as issues on the project board. Commits need a DCO sign-off (the `-s` flag); there is no CLA. Questions go in [SUPPORT.md](SUPPORT.md). Report security problems as described in [SECURITY.md](SECURITY.md), not as public issues.
 
 ## More
 
-- [`docs/operations/deployment.md`](docs/operations/deployment.md): running it for real
-- [`docs/architecture/principles.md`](docs/architecture/principles.md) and [`docs/adr/`](docs/adr/): how it's designed, and why
-- [`GOVERNANCE.md`](GOVERNANCE.md): who decides what
-- [`AGENTS.md`](AGENTS.md): the rules AI coding agents follow here
-- [`PROVENANCE.md`](PROVENANCE.md): where the requirements came from
+- [Deployment](docs/operations/deployment.md)
+- [Architecture principles](docs/architecture/principles.md)
+- [Governance](GOVERNANCE.md)
+- [Rules for AI coding agents](AGENTS.md)
+- [Provenance](PROVENANCE.md)
 
 ## License
 
-MPL-2.0. See [`LICENSE`](LICENSE).
+[MPL-2.0](LICENSE)
