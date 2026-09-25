@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Support\Translations;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -22,8 +23,17 @@ final class HandleInertiaRequests extends Middleware
         $locale = app()->getLocale();
         $fallback = config()->string('app.fallback_locale');
 
+        $user = $request->user();
+        $status = $request->session()->get('status');
+
         return [
             ...parent::share($request),
+            'auth' => [
+                'user' => $user instanceof User
+                    ? ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]
+                    : null,
+            ],
+            'status' => is_string($status) ? $status : null,
             'locale' => $locale,
             'fallbackLocale' => $fallback,
             'translations' => Translations::for($locale, $fallback),

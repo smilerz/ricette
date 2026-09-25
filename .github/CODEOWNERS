@@ -22,3 +22,11 @@
 /Dockerfile         @smilerz
 /.dockerignore      @smilerz
 /docker/**          @smilerz
+
+# Authentication and authorization code
+/app/Http/Controllers/Auth/**  @smilerz
+/app/Http/Requests/Auth/**     @smilerz
+/app/Models/User.php           @smilerz
+/app/Support/EmailAddress.php  @smilerz
+/config/auth.php               @smilerz
+/config/hashing.php            @smilerz

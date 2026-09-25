@@ -5,4 +5,4 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-vendor/bin/pest --colors=never --mutate --covered-only --min=80 --class='App\Support\Translations'
+vendor/bin/pest --colors=never --mutate --covered-only --min=80 --class='App\Support\Translations' --class='App\Support\EmailAddress' --class='App\Support\DatabaseWaiter' --class='App\Support\TrustedProxies'
