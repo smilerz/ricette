@@ -1,0 +1,63 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PHP: Listen for Xdebug",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": {
+        "${workspaceFolder}": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "Browser: http://localhost:8000",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Pest: debug current test file",
+      "type": "php",
+      "request": "launch",
+      "program": "${workspaceFolder}/vendor/bin/pest",
+      "args": [
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": [
+        "-dxdebug.mode=debug",
+        "-dxdebug.start_with_request=yes",
+        "-dxdebug.client_port=9003"
+      ],
+      "port": 9003
+    },
+    {
+      "name": "Vitest: debug current test file",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": [
+        "run",
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Ricette: app + PHP debugger + browser",
+      "configurations": [
+        "PHP: Listen for Xdebug",
+        "Browser: http://localhost:8000"
+      ],
+      "preLaunchTask": "Ricette: start dev servers",
+      "stopAll": true
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 # Canonical developer commands
 
+Other commands: `./bin/setup` checks your tools and installs dependencies, `./bin/dev` runs the app with hot reload
+and PHP debugging (`--seed` adds a demo account), and `./bin/format` applies formatting.
+
 `./bin/verify` is the single verification entry point. CI invokes the same
 targets, so a green local run means the same checks pass in CI. New checks are
 added to this script rather than to a parallel command.
@@ -26,7 +29,7 @@ added to this script rather than to a parallel command.
 
 `node` (for `npx`), `jq`, and either `uvx` or `pipx`. Tool versions are pinned
 inside the scripts. The PHP and frontend targets also need the toolchain in
-`docs/development/setup.md`.
+[`docs/development/setup.md`](setup.md).
 
 ## Targets
 
@@ -48,22 +51,22 @@ inside the scripts. The PHP and frontend targets also need the toolchain in
 
 ## Contribution-policy rules
 
-A change under a behavioral path (`app/`, `src/`, `routes/`, `database/`,
-`resources/`, `config/`, `docker/`, `Dockerfile`) requires a test change and a
-documentation change. A change to user-facing paths (`resources/js/`,
-`resources/views/`, `resources/css/`) also requires translation keys under
-`lang/` or `resources/lang/`. Path classes are extended as the application
+A change under a behavioral path ([`app/`](../../app/), `src/`, [`routes/`](../../routes/), [`database/`](../../database/),
+[`resources/`](../../resources/), [`config/`](../../config/), [`docker/`](../../docker/), `Dockerfile`) requires a test change and a
+documentation change. A change to user-facing paths ([`resources/js/`](../../resources/js/),
+[`resources/views/`](../../resources/views/), [`resources/css/`](../../resources/css/)) also requires translation keys under
+[`lang/`](../../lang/) or `resources/lang/`. Path classes are extended as the application
 layout appears.
 
 The `exception:no-test` and `exception:no-doc` labels waive the test and
 documentation requirements respectively. They are **maintainer-applied**; a
-contributor or agent cannot self-exempt (see `CONTRIBUTING.md`, "Exceptions").
+contributor or agent cannot self-exempt (see [`CONTRIBUTING.md`](../../CONTRIBUTING.md), "Exceptions").
 
 The check cannot verify that a bug-fix regression test fails before the fix;
 that remains a review responsibility.
 
 ## Adding a check
 
-Add an executable under `bin/checks/`, register it as a target in
-`bin/verify`, cover its passing and failing paths in `tests/bin/run.sh`, and
+Add an executable under [`bin/checks/`](../../bin/checks/), register it as a target in
+[`bin/verify`](../../bin/verify), cover its passing and failing paths in [`tests/bin/run.sh`](../../tests/bin/run.sh), and
 add a workflow that calls `./bin/verify <target>`.

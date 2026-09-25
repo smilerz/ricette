@@ -1,53 +1,49 @@
-# Ricette (working name)
+# Ricette
 
-A recipe and meal-planning application, currently in its **Foundation 0**
-phase: establishing technical, security, governance, development, testing,
-documentation, licensing, commercial, and AI-development rules before any
-application/domain code is written.
+[![CI](https://github.com/smilerz/ricette/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/ci.yml)
+[![Container](https://github.com/smilerz/ricette/actions/workflows/container.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/container.yml)
+[![Verify](https://github.com/smilerz/ricette/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/verify.yml)
+[![Code scanning](https://img.shields.io/badge/code%20scanning-CodeQL-informational.svg)](https://github.com/smilerz/ricette/security/code-scanning)
+[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
+![Status: early development](https://img.shields.io/badge/status-early%20development-orange.svg)
 
-The application begins deliberately nameless and is developed publicly on
-GitHub. `Ricette` (Italian for "recipes") is a working directory name, not
-a final product name.
+Ricette is a recipe and meal-planning app you can run yourself. "Ricette" is the Italian word for recipes and is a working name, not a final one.
 
-## Two deployment paths
+It's early. You can sign up, sign in and create a household; recipes, meal plans and shopping lists are what gets built next. Nothing is released yet.
 
-- **Community / self-hosted** — open source, free to use, no required
-  vendor account or external infrastructure, fully useful when
-  disconnected from the project's hosted services.
-- **Hosted / freemium** — the same core application, plus managed
-  infrastructure and commercial capabilities, monetized through
-  capabilities and entitlements rather than a forked codebase.
+The same code will also power a hosted version for people who would rather not run it themselves. Self-hosting stays free and doesn't depend on any outside service.
 
-## Stack
+## Try it
 
-Laravel 13 (backend) · Svelte 5 + TypeScript (frontend) · Inertia 3 (web
-integration) · SQLite (self-hosted) · PostgreSQL (hosted) · OCI/Docker
-image (release artifact).
+You need PHP, Composer, Node and pnpm. `./bin/setup` checks your machine and tells you what's missing.
 
-See `docs/adr/` for the reasoning behind each of these choices.
+```bash
+./bin/setup
+./bin/dev --seed
+```
 
-## Where to look
+Then open <http://localhost:8000>. The demo login is `demo@example.com` with the password `correct horse battery staple`.
 
-| Question | Where |
-|---|---|
-| Why does the architecture look like this? | `docs/architecture/principles.md`, `docs/adr/` |
-| What am I allowed to change, and how? | `GOVERNANCE.md`, `CONTRIBUTING.md` |
-| Where did this project's requirements come from? | `PROVENANCE.md` |
-| What can AI coding agents do here? | `AGENTS.md` |
-| What's the threat model? | `docs/security/threat-model.md` |
-| How do I test, style, document, translate, and make things accessible? | `docs/development/` |
-| What's left before application code can start? | `IMPLEMENTATION_PLAN.md` |
-| How do I report a security issue? | `SECURITY.md` |
-| Where do I ask for help? | `SUPPORT.md` |
+`./bin/verify` runs every check the project's CI runs. [`docs/development/setup.md`](docs/development/setup.md) has the details, including debugging in VS Code.
+
+## Built with
+
+Laravel 13 and Svelte 5, connected with Inertia. SQLite by default, PostgreSQL if you prefer it. It ships as a container image. The reasons behind these choices are in [`docs/adr/`](docs/adr/).
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. Work is tracked as issues on the project board, and a change should start from one. Every commit needs a sign-off (the `-s` flag when you commit); we use the Developer Certificate of Origin instead of a contributor agreement.
+
+Questions are in [`SUPPORT.md`](SUPPORT.md). Security problems are in [`SECURITY.md`](SECURITY.md); please don't report those as public issues.
+
+## More
+
+- [`docs/operations/deployment.md`](docs/operations/deployment.md): running it for real
+- [`docs/architecture/principles.md`](docs/architecture/principles.md) and [`docs/adr/`](docs/adr/): how it's designed, and why
+- [`GOVERNANCE.md`](GOVERNANCE.md): who decides what
+- [`AGENTS.md`](AGENTS.md): the rules AI coding agents follow here
+- [`PROVENANCE.md`](PROVENANCE.md): where the requirements came from
 
 ## License
 
-MPL-2.0 — see `LICENSE`. Contributions are certified under the Developer
-Certificate of Origin (DCO), not a CLA — see `CONTRIBUTING.md`.
-
-## Status
-
-No application code yet. This repository currently contains only
-Foundation 0 governance: licensing, provenance, ADRs, and policy
-documents. See `IMPLEMENTATION_PLAN.md` for the sequencing toward the
-first application PR.
+MPL-2.0. See [`LICENSE`](LICENSE).

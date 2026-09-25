@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Checks that this machine has what Ricette development needs, tells you exactly what is missing and how
+# to get it, and, once the essentials are present, installs the project's own dependencies.
+#
+#   ./bin/setup            check, then install project dependencies (composer install, pnpm install, .env)
+#   ./bin/setup --check    only check; change nothing
+#
+# It never installs system software for you. Required tools are the ones ./bin/dev and ./bin/verify need;
+# optional ones only add features (debugging, browser tests, container checks).
+set -uo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+check_only=0
+[ "${1:-}" = "--check" ] && check_only=1
+
+missing_required=0
+missing_optional=0
+
+if grep -qi microsoft /proc/version 2>/dev/null; then
+  platform=wsl
+elif [ "$(uname -s)" = "Darwin" ]; then
+  platform=macos
+elif command -v apt-get >/dev/null 2>&1; then
+  platform=debian
+else
+  platform=other
+fi
+
+ok() { printf '  ok       %s\n' "$1"; }
+missing() { # missing <required|optional> <what> <how>
+  if [ "$1" = required ]; then
+    missing_required=$((missing_required + 1))
+    printf '  MISSING  %s\n' "$2"
+  else
+    missing_optional=$((missing_optional + 1))
+    printf '  optional %s (not found)\n' "$2"
+  fi
+  printf '           %s\n' "$3"
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+version_ge() { # version_ge <have> <want>: dotted versions
+  [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]
+}
+
+echo "Platform: $platform"
+echo
+echo "Required"
+
+# PHP
+if have php; then
+  php_version=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+  if version_ge "$php_version" 8.3; then
+    ok "php $php_version (CI and the image use 8.4)"
+  else
+    missing required "php $php_version is too old (need 8.3 or newer)" "Install PHP 8.4: https://php.new (any platform), or your package manager"
+  fi
+  missing_ext=""
+  for ext in pdo_sqlite intl mbstring zip sodium xml curl fileinfo tokenizer openssl ctype dom; do
+    php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' -- "$ext" || missing_ext="$missing_ext $ext"
+  done
+  if [ -z "$missing_ext" ]; then
+    ok "php extensions"
+  else
+    hint="Install the missing PHP extensions:$missing_ext"
+    if [ "$platform" = debian ] || [ "$platform" = wsl ]; then
+      hint="$hint  (Debian/Ubuntu: sudo apt install php8.4-sqlite3 php8.4-intl php8.4-mbstring php8.4-zip php8.4-xml php8.4-curl)"
+    fi
+    missing required "php extensions:$missing_ext" "$hint"
+  fi
+  if php -r 'exit(extension_loaded("pdo_pgsql") ? 0 : 1);'; then
+    ok "php pdo_pgsql (PostgreSQL tests)"
+  else
+    missing optional "php pdo_pgsql (only needed to run the tests against PostgreSQL)" "Debian/Ubuntu: sudo apt install php8.4-pgsql"
+  fi
+else
+  missing required "php" "Install PHP 8.4 with Composer: https://php.new (Linux, macOS, Windows). On WSL use the Linux instructions inside WSL."
+fi
+
+# Composer
+if have composer; then
+  ok "composer $(composer --version 2>/dev/null | sed -E 's/[^0-9]*([0-9.]+).*/\1/')"
+else
+  missing required "composer" "Installed by https://php.new, or https://getcomposer.org/download/"
+fi
+
+# Node and pnpm
+if have node; then
+  node_version=$(node -p 'process.versions.node')
+  if version_ge "$node_version" 22; then
+    ok "node $node_version (CI and the image use 25)"
+  else
+    missing required "node $node_version is too old (need 22 or newer)" "Install Node 25 with fnm (https://github.com/Schniz/fnm) or nvm"
+  fi
+else
+  missing required "node" "Install Node 25 with fnm (https://github.com/Schniz/fnm) or nvm; on macOS: brew install node"
+fi
+if have pnpm; then
+  ok "pnpm $(pnpm --version 2>/dev/null)"
+else
+  missing required "pnpm" "npm install --global pnpm@12.6.0   (the version is pinned in package.json)"
+fi
+
+# The repository-wide checks in ./bin/verify lint
+if have jq; then ok "jq"; else missing required "jq" "apt install jq  |  brew install jq"; fi
+if have npx; then ok "npx"; else missing required "npx (comes with Node)" "Reinstall Node"; fi
+if have uvx || have pipx; then
+  ok "uvx or pipx (Python tool runner for the lint tools)"
+else
+  missing required "uvx or pipx" "Install uv: https://docs.astral.sh/uv/getting-started/installation/"
+fi
+
+# Git identity: every commit needs a DCO sign-off (the -s flag when committing), which uses these
+if [ -n "$(git config user.name 2>/dev/null)" ] && [ -n "$(git config user.email 2>/dev/null)" ]; then
+  ok "git identity ($(git config user.name) <$(git config user.email)>)"
+else
+  missing required "git user.name / user.email" "git config --global user.name \"Your Name\" ; git config --global user.email you@example.com   (used by the DCO sign-off)"
+fi
+
+echo
+echo "Optional"
+if have php && php -r 'exit(extension_loaded("xdebug") ? 0 : 1);'; then
+  ok "xdebug (PHP debugger for VS Code)"
+else
+  missing optional "xdebug (PHP debugging in VS Code)" "Debian/Ubuntu/WSL: sudo apt install php8.4-xdebug  |  macOS: pecl install xdebug  |  then re-run this script"
+fi
+if [ -d node_modules/@playwright/test ] && ls "$HOME/.cache/ms-playwright" >/dev/null 2>&1; then
+  ok "playwright browsers (end-to-end tests)"
+else
+  missing optional "playwright browsers (end-to-end tests)" "After the install below: pnpm exec playwright install --with-deps chromium"
+fi
+if have docker; then ok "docker (container-acceptance and the image build)"; else missing optional "docker (only for ./bin/verify container-acceptance and building the image)" "Docker Desktop, or Docker Engine inside WSL"; fi
+if have gh; then ok "gh (GitHub CLI)"; else missing optional "gh (GitHub CLI, handy for PRs and CI status)" "https://cli.github.com"; fi
+
+echo
+if [ $missing_required -gt 0 ]; then
+  echo "$missing_required required item(s) missing. Fix them and run ./bin/setup again."
+  exit 1
+fi
+
+if [ $check_only -eq 1 ]; then
+  echo "All required tools are present."
+  exit 0
+fi
+
+echo "Installing project dependencies"
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "  created .env"
+fi
+composer install --no-interaction || exit 1
+grep -q '^APP_KEY=.\+' .env || php artisan key:generate --no-interaction
+pnpm install || exit 1
+
+echo
+echo "Ready. Next:"
+echo "  ./bin/dev --seed     run the app with hot reload and a demo account (http://localhost:8000)"
+echo "  ./bin/verify         run every check CI runs (some need optional tools)"
+echo "  See docs/development/setup.md and CONTRIBUTING.md."
+if [ $missing_optional -gt 0 ]; then
+  echo "  ($missing_optional optional tool(s) not installed; see above.)"
+fi
+exit 0
