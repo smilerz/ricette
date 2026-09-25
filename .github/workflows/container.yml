@@ -22,33 +22,50 @@ jobs:
           persist-credentials: false
       - run: ./bin/verify dockerfile
 
+  # Each architecture builds natively (no emulation) and keeps its own layer cache.
   container-build:
-    name: container-build (multi-arch)
-    runs-on: ubuntu-24.04
+    name: container-build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build linux/amd64 and linux/arm64
+      - name: Build linux/${{ matrix.arch }}
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.arch }}
+          load: true
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ricette:${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+      - name: Report image size
+        run: |
+          size=$(docker image inspect ricette:${{ matrix.arch }} --format '{{.Size}}')
+          echo "ricette:${{ matrix.arch }} is $((size / 1024 / 1024)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
+          docker history --format '{{.Size}}\t{{.CreatedBy}}' ricette:${{ matrix.arch }} | head -20 >> "$GITHUB_STEP_SUMMARY" || true
 
+  # These reuse the amd64 layer cache that container-build just wrote, so they do not rebuild.
   container-scan:
     name: container-scan
+    needs: container-build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build the amd64 image
+      - name: Load the amd64 image from cache
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -56,20 +73,7 @@ jobs:
           load: true
           push: false
           tags: ricette:ci
-          cache-from: type=gha
-      - name: Smoke test the container
-        run: |
-          docker run -d --name ricette-smoke -p 8080:8080 \
-            -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ricette:ci
-          for _ in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/up >/dev/null; then
-              echo "container is serving /up"
-              exit 0
-            fi
-            sleep 2
-          done
-          docker logs ricette-smoke
-          exit 1
+          cache-from: type=gha,scope=amd64
       - name: Generate SBOM
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
@@ -91,15 +95,16 @@ jobs:
           output-format: table
           only-fixed: true
 
-  boot-acceptance:
-    name: boot-acceptance
+  container-acceptance:
+    name: container-acceptance
+    needs: container-build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build the amd64 image
+      - name: Load the amd64 image from cache
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -107,7 +112,7 @@ jobs:
           load: true
           push: false
           tags: ricette:ci
-          cache-from: type=gha
-      - run: ./bin/verify boot-acceptance
+          cache-from: type=gha,scope=amd64
+      - run: ./bin/verify container-acceptance
         env:
           IMAGE: ricette:ci

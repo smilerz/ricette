@@ -51,3 +51,10 @@ docker run --rm -p 8080:8080 -e APP_KEY="$(php artisan key:generate --show)" -v 
 ```
 
 Migrations do not run automatically yet; that is separate deployment work.
+
+### How CI builds the image
+
+Each architecture (`linux/amd64`, `linux/arm64`) builds natively on its own runner with its own layer cache; the
+vulnerability scan and the boot acceptance tests load the amd64 image from that cache instead of rebuilding it.
+The build job's summary shows the image size and the largest layers. To keep the image small, PHP extensions are
+compiled only when the base image lacks them and test suites, docs and examples in dependencies are removed.

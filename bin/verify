@@ -6,11 +6,11 @@
 #   ./bin/verify <target>...          run selected targets
 #
 # Targets: lint dco contribution-policy selftest lockfiles php-static php-test
-#          frontend dockerfile composer-audit coverage mutation boot-acceptance
+#          frontend dockerfile composer-audit coverage mutation container-acceptance
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-ALL=(lint dco contribution-policy selftest lockfiles php-static php-test frontend dockerfile composer-audit coverage mutation boot-acceptance)
+ALL=(lint dco contribution-policy selftest lockfiles php-static php-test frontend dockerfile composer-audit coverage mutation container-acceptance)
 targets=("$@")
 [ ${#targets[@]} -eq 0 ] && targets=("${ALL[@]}")
 
@@ -28,7 +28,7 @@ run_target() {
     composer-audit) bin/checks/composer-audit ;;
     coverage) bin/checks/coverage ;;
     mutation) bin/checks/mutation ;;
-    boot-acceptance) bin/checks/boot-acceptance ;;
+    container-acceptance) bin/checks/container-acceptance ;;
     *) echo "unknown target: $1 (targets: ${ALL[*]})" >&2; return 2 ;;
   esac
 }
