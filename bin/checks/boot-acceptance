@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Deployment acceptance tests against the built image (MVP deploy/boot requirements).
+#   ./bin/verify boot-acceptance            builds nothing; expects the image in IMAGE (default ricette:ci)
+#
+# 1. SQLite: a fresh volume reaches the current schema with no manual step, and the
+#    schema survives a container restart.
+# 2. PostgreSQL: the application starts before the database, retries until it is up,
+#    migrates with separate credentials, and the running server holds only the
+#    least-privilege credentials.
+# 3. Reverse proxy: forwarded headers are ignored unless TRUSTED_PROXIES trusts the peer.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+IMAGE=${IMAGE:-ricette:ci}
+APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+suffix=$$
+containers=()
+volumes=()
+networks=()
+
+cleanup() {
+  for c in "${containers[@]:-}"; do [ -n "$c" ] && docker rm -f "$c" >/dev/null 2>&1 || true; done
+  for v in "${volumes[@]:-}"; do [ -n "$v" ] && docker volume rm -f "$v" >/dev/null 2>&1 || true; done
+  for n in "${networks[@]:-}"; do [ -n "$n" ] && docker network rm "$n" >/dev/null 2>&1 || true; done
+}
+trap cleanup EXIT
+
+fail() {
+  echo "FAILED: $*" >&2
+  exit 1
+}
+
+host_port() { docker port "$1" 8080/tcp | head -1 | sed 's/.*://'; }
+
+wait_for_up() { # wait_for_up <container> <seconds>
+  local port
+  port=$(host_port "$1")
+  for _ in $(seq 1 "$2"); do
+    if curl -fsS "http://127.0.0.1:$port/up" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  docker logs "$1" >&2 || true
+  return 1
+}
+
+migrations_pending() { docker exec "$1" php artisan migrate:status --pending 2>&1 || true; }
+
+echo "== 1. SQLite: fresh volume migrates at boot and survives a restart"
+vol=ricette-accept-data-$suffix
+volumes+=("$vol")
+docker volume create "$vol" >/dev/null
+c=ricette-accept-sqlite-$suffix
+containers+=("$c")
+docker run -d --name "$c" -p 127.0.0.1::8080 -e APP_KEY="$APP_KEY" -v "$vol:/data" "$IMAGE" >/dev/null
+wait_for_up "$c" 60 || fail "SQLite container did not serve /up"
+out=$(migrations_pending "$c")
+echo "$out" | grep -qi "no pending migrations" || fail "migrations pending after boot: $out"
+ran_before=$(docker exec "$c" php artisan migrate:status 2>&1 | grep -c "Ran" || true)
+[ "$ran_before" -gt 0 ] || fail "no migrations were applied"
+docker restart "$c" >/dev/null
+wait_for_up "$c" 60 || fail "SQLite container did not serve /up after restart"
+ran_after=$(docker exec "$c" php artisan migrate:status 2>&1 | grep -c "Ran" || true)
+[ "$ran_before" = "$ran_after" ] || fail "schema changed across restart ($ran_before -> $ran_after)"
+
+echo "== 2. PostgreSQL: application starts first, waits, migrates with separate credentials"
+net=ricette-accept-net-$suffix
+networks+=("$net")
+docker network create "$net" >/dev/null
+app=ricette-accept-pg-app-$suffix
+db=ricette-accept-pg-db-$suffix
+containers+=("$app" "$db")
+docker run -d --name "$app" --network "$net" -p 127.0.0.1::8080 \
+  -e APP_KEY="$APP_KEY" -e DB_CONNECTION=pgsql -e DB_HOST="$db" -e DB_PORT=5432 -e DB_DATABASE=ricette \
+  -e DB_USERNAME=ricette_app -e DB_PASSWORD=app \
+  -e DB_MIGRATION_USERNAME=ricette_migrator -e DB_MIGRATION_PASSWORD=migrator \
+  -e DB_WAIT_TIMEOUT=120 "$IMAGE" >/dev/null
+sleep 8
+port=$(host_port "$app")
+if curl -fsS "http://127.0.0.1:$port/up" >/dev/null 2>&1; then fail "application served before the database existed"; fi
+docker run -d --name "$db" --network "$net" -e POSTGRES_PASSWORD=postgres \
+  -v "$PWD/.github/ci/pg-init.sql:/docker-entrypoint-initdb.d/init.sql:ro" postgres:17 >/dev/null
+wait_for_up "$app" 120 || fail "application did not start after the database came up"
+docker logs "$app" 2>&1 | grep -q "Database not ready" || fail "no retry was logged while the database was down"
+out=$(migrations_pending "$app")
+echo "$out" | grep -qi "no pending migrations" || fail "migrations pending after boot: $out"
+if docker exec "$app" cat /proc/1/environ | tr '\0' '\n' | grep -q '^DB_MIGRATION_'; then
+  fail "the running server still holds the migration credentials"
+fi
+docker exec "$app" cat /proc/1/environ | tr '\0' '\n' | grep -q '^DB_USERNAME=ricette_app$' || fail "the server does not run with the runtime credentials"
+if docker exec -e PGPASSWORD=app "$db" psql -U ricette_app -d ricette -c 'CREATE TABLE forbidden (id int)' >/dev/null 2>&1; then
+  fail "the runtime role can alter the schema"
+fi
+docker exec -e PGPASSWORD=app "$db" psql -U ricette_app -d ricette -c 'SELECT count(*) FROM migrations' >/dev/null \
+  || fail "the runtime role cannot read application tables"
+
+echo "== 3. Reverse proxy: forwarded headers need a trusted peer"
+fetch() { curl -fsS -H 'X-Forwarded-Proto: https' -H 'X-Forwarded-Host: ricette.example' "http://127.0.0.1:$1/"; }
+plain=ricette-accept-proxy-none-$suffix
+trusted=ricette-accept-proxy-trusted-$suffix
+containers+=("$plain" "$trusted")
+docker run -d --name "$plain" -p 127.0.0.1::8080 -e APP_KEY="$APP_KEY" "$IMAGE" >/dev/null
+docker run -d --name "$trusted" -p 127.0.0.1::8080 -e APP_KEY="$APP_KEY" -e TRUSTED_PROXIES='*' "$IMAGE" >/dev/null
+wait_for_up "$plain" 60 || fail "container without trusted proxies did not start"
+wait_for_up "$trusted" 60 || fail "container with trusted proxies did not start"
+fetch "$(host_port "$plain")" | grep -q 'https://ricette.example' && fail "forwarded headers were honored with no trusted proxy"
+fetch "$(host_port "$trusted")" | grep -q 'https://ricette.example/build/' || fail "forwarded headers were not honored from a trusted proxy"
+
+echo "boot acceptance: OK"
