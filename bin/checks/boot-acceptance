@@ -26,6 +26,9 @@ trap cleanup EXIT
 
 fail() {
   echo "FAILED: $*" >&2
+  for c in "${containers[@]:-}"; do
+    [ -n "$c" ] && { echo "--- logs: $c" >&2; docker logs "$c" 2>&1 | tail -40 >&2 || true; }
+  done
   exit 1
 }
 
