@@ -1,13 +1,23 @@
 # Ricette (working name)
 
-A recipe and meal-planning application, currently in its **Foundation 0**
-phase: establishing technical, security, governance, development, testing,
-documentation, licensing, commercial, and AI-development rules before any
-application/domain code is written.
+A recipe and meal-planning application. Foundation 0 (licensing, governance, security,
+testing, documentation and AI-development rules) is established, and the first application
+slices are being built from the Issues on the Ricette Project board.
 
 The application begins deliberately nameless and is developed publicly on
 GitHub. `Ricette` (Italian for "recipes") is a working directory name, not
 a final product name.
+
+## Quick start
+
+```bash
+./bin/setup        # check your tools and install dependencies
+./bin/dev --seed   # run the app with hot reload and a demo account at http://localhost:8000
+./bin/verify       # run every check CI runs
+```
+
+See `docs/development/setup.md` for the tools you need and the VS Code debugging setup, and `CONTRIBUTING.md` for
+how to make a change.
 
 ## Two deployment paths
 
@@ -36,7 +46,9 @@ See `docs/adr/` for the reasoning behind each of these choices.
 | What can AI coding agents do here? | `AGENTS.md` |
 | What's the threat model? | `docs/security/threat-model.md` |
 | How do I test, style, document, translate, and make things accessible? | `docs/development/` |
-| What's left before application code can start? | `IMPLEMENTATION_PLAN.md` |
+| How do I set up my machine and run the app? | `docs/development/setup.md`, `./bin/setup` |
+| What should I work on? | The Issues on the Ricette Project board (`IMPLEMENTATION_PLAN.md` is historical provenance) |
+| How do I run the app in production? | `docs/operations/deployment.md` |
 | How do I report a security issue? | `SECURITY.md` |
 | Where do I ask for help? | `SUPPORT.md` |
 
@@ -47,7 +59,5 @@ Certificate of Origin (DCO), not a CLA — see `CONTRIBUTING.md`.
 
 ## Status
 
-No application code yet. This repository currently contains only
-Foundation 0 governance: licensing, provenance, ADRs, and policy
-documents. See `IMPLEMENTATION_PLAN.md` for the sequencing toward the
-first application PR.
+Early development. Each slice of the application is built from an Issue with acceptance criteria and merged only
+when the checks pass. Nothing here is released yet.

@@ -28,6 +28,49 @@ contributed code, or combining MPL-covered code with proprietary services
 or separate proprietary files where MPL permits it. See ADR-0008 for the
 full rationale for choosing DCO over a CLA.
 
+## Getting started
+
+1. Fork or clone the repository and run `./bin/setup`. It checks your tools, tells you exactly what is missing and how
+   to get it, and installs the project's dependencies. It never installs system software for you.
+2. Run `./bin/dev --seed` and open <http://localhost:8000> for the app with hot reload and a demo account. VS Code
+   users: accept the recommended extensions and use the **Ricette: app + PHP debugger + browser** launch.
+3. Run `./bin/verify` to run every check CI runs. Some targets need optional tools (Xdebug or pcov for coverage,
+   Docker for the container checks); `./bin/verify lint php-static php-test frontend` is the fast subset.
+
+Full details: `docs/development/setup.md` and `docs/development/commands.md`.
+
+## How work is organized
+
+Work is tracked as **GitHub Issues on the Ricette Project board**. Each Issue is one independently deliverable
+requirement with acceptance criteria, its source, and its Tier and Release. The Issues and the board, not the
+design documents, say what is ready to build: an Issue is ready when it is Active, has no open `blocked_by`
+dependency, and its Status is Ready. ADRs, the Foundation baseline and `IMPLEMENTATION_PLAN.md` explain why things are
+the way they are; they are not a backlog.
+
+- **Want to work on something?** Pick a Ready Issue and comment to say so. If there is no Issue for it, open one first.
+- **Have a question?** See `SUPPORT.md`. **Found a security problem?** See `SECURITY.md`; do not open a public Issue.
+- **Does your change involve a real choice?** A change that materially sets or alters product behavior, architecture,
+  major dependencies, security or privacy, what operators must run, costly-to-change data or interfaces, or governance
+  needs the maintainer's decision *before* you build it (ADR-0027). Put the options and your recommendation on the Issue
+  and wait. Routine implementation choices are yours.
+
+## Making a change
+
+1. **Branch** from `main`. Never commit directly to `main`.
+2. **Build it** with tests, documentation and translation keys in the same change (the contribution contract below).
+   Follow the style and testing policies; `./bin/format` applies the formatting.
+3. **Check it** with `./bin/verify` (or the fast subset above) before you push.
+4. **Commit with a sign-off**: the `-s` flag when you commit adds the `Signed-off-by` line the DCO check requires on
+   every commit. Use a message of the form `type: description` with `type` one of `feat`, `fix`, `refactor`, `test`,
+   `docs`, `chore`, `perf`, saying why, and referencing the Issue (`Refs #123`).
+5. **Open a pull request** and fill in the template. Link the Issue, say how you tested it, and note any protected
+   paths you touched.
+6. **Review**: required checks must pass and a maintainer reviews (see "Review process" below). Only maintainers merge.
+
+The required checks are the ones in `docs/development/commands.md`: lint, DCO, contribution-policy, the PHP and
+frontend checks on SQLite and PostgreSQL, coverage, mutation, dependency and container checks, and end-to-end tests.
+A red check means fix the change, not the check.
+
 ## The contribution contract
 
 Every behavioral contribution is composed of:
