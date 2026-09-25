@@ -1,0 +1,2 @@
+# Rules are enforced as-is; no ignores.
+failure-threshold: warning

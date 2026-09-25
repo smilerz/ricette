@@ -6,7 +6,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 npx --yes markdownlint-cli2@0.23.3 --fix
 
+[ -x vendor/bin/pint ] && vendor/bin/pint
+command -v pnpm >/dev/null 2>&1 && pnpm run --silent format
+
 while IFS= read -r f; do
   tmp=$(mktemp)
   jq --indent 2 . "$f" >"$tmp" && mv "$tmp" "$f"
-done < <(git ls-files '*.json')
+done < <(git ls-files '*.json' ':!:composer.json' ':!:composer.lock')

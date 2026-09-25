@@ -10,13 +10,22 @@ added to this script rather than to a parallel command.
 ./bin/verify dco                    every commit is signed off (DCO 1.1)
 ./bin/verify contribution-policy    tests + docs + translations for behavioral changes
 ./bin/verify selftest               tests for the checks themselves
+./bin/verify lockfiles              lockfiles committed and current
+./bin/verify php-static             composer validate, Pint, PHPStan (level 10)
+./bin/verify php-test               Pest (database from the environment)
+./bin/verify frontend               Prettier, ESLint, svelte-check + tsc, Vitest, translations
+./bin/verify dockerfile             Dockerfile lint
+./bin/verify composer-audit         known-vulnerability audit (Composer and pnpm)
+./bin/verify coverage               coverage floors and changed-code coverage
+./bin/verify mutation               selective mutation testing
 ./bin/format                        apply automatic formatting
 ```
 
 ## Requirements
 
 `node` (for `npx`), `jq`, and either `uvx` or `pipx`. Tool versions are pinned
-inside the scripts.
+inside the scripts. The PHP and frontend targets also need the toolchain in
+`docs/development/setup.md`.
 
 ## Targets
 
@@ -26,6 +35,14 @@ inside the scripts.
 | `dco` | Sign-off enforcement (§10); range from `DCO_BASE`/`DCO_HEAD`, default `origin/main..HEAD` | `dco` |
 | `contribution-policy` | Contribution contract (§25-29, §48); range from `CP_BASE`/`CP_HEAD`, labels from `CP_LABELS` | `contribution-policy` |
 | `selftest` | Runs each check against throwaway repositories, including failing cases | `checks-selftest` |
+| `lockfiles` | Lockfiles committed, current, and only one JavaScript package manager | `lockfiles` |
+| `php-static` | Composer validation, Pint, PHPStan level 10 | `php-static` |
+| `php-test` | Pest; SQLite by default, PostgreSQL via `DB_CONNECTION=pgsql` | `php-test (sqlite)`, `php-test (pgsql)` |
+| `frontend` | Prettier, ESLint, svelte-check and tsc, Vitest, translation validation | `frontend` |
+| `dockerfile` | Dockerfile lint | `dockerfile-lint` |
+| `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `dependency-audit` |
+| `coverage` | PHP and frontend coverage floors plus changed-code coverage | `coverage` |
+| `mutation` | Mutation testing of critical pure logic | `mutation` |
 
 ## Contribution-policy rules
 

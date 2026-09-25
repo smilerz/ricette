@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Frontend checks (Foundation 0 §30, §33, §42, §49): Prettier, ESLint,
+# svelte-check + tsc strict, Vitest, translation validation.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+# shellcheck source=bin/lib.sh
+source bin/lib.sh
+
+require_tool pnpm "https://pnpm.io (ADR-0020)"
+step prettier pnpm run --silent format:check
+step eslint pnpm run --silent lint
+step type-check pnpm run --silent check
+step vitest pnpm run --silent test
+step i18n pnpm run --silent i18n:validate
+steps_result

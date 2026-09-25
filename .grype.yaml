@@ -1,0 +1,19 @@
+# Vulnerability policy for the container scan (Foundation 0 section 35): fail on
+# High and Critical findings that have a fix available (only-fixed in the
+# workflow). Unfixed base-image findings are still printed in the scan log.
+#
+# Accepted findings need a reason and are removed when the base image ships a fix.
+# gRPC-Go is vendored inside the FrankenPHP/Caddy binary and used by its
+# OpenTelemetry exporters as a client. The image does not run a gRPC or xDS
+# server, which is what each advisory below requires. Upstream fixes arrive with
+# a FrankenPHP release; Dependabot proposes the image bump.
+ignore:
+  - vulnerability: GHSA-2v4p-qf9q-27wj # xDS servers: DoS via missing :authority/Host headers
+    package:
+      name: google.golang.org/grpc
+  - vulnerability: GHSA-vp52-pcj8-j9qc # HTTP/2 DATA frame fragmentation OOM
+    package:
+      name: google.golang.org/grpc
+  - vulnerability: GHSA-hrxh-6v49-42gf # xDS RBAC and HTTP/2 vulnerabilities
+    package:
+      name: google.golang.org/grpc

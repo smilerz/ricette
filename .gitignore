@@ -32,3 +32,8 @@ Thumbs.db
 # (reverses the earlier decision to commit .claude/settings.json; see
 # IMPLEMENTATION_PLAN.md "Auto-mode enforcement split" for the history)
 .claude/
+
+# Test and coverage output
+/coverage/
+/test-results/
+/playwright-report/

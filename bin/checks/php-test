@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# PHP tests (Pest). The database comes from the environment: sqlite in memory
+# by default, PostgreSQL when DB_CONNECTION=pgsql and DB_* are set (ADR-0006).
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+vendor/bin/pest --colors=never "$@"
