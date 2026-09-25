@@ -81,7 +81,7 @@ push. TypeScript, Svelte and CSS are formatted with Prettier on save.
 ./bin/verify
 ```
 
-Targets run individually with `./bin/verify <target>`; see `docs/development/commands.md`.
+Targets run individually with `./bin/verify <target>`; see [`docs/development/commands.md`](commands.md).
 `./bin/format` applies the automatic formatting.
 
 ## Databases
@@ -92,7 +92,7 @@ with the `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` va
 
 ## Translations
 
-All user-visible text lives in `lang/en.json` (ADR-0024). `pnpm run i18n:validate` checks the catalogs;
+All user-visible text lives in [`lang/en.json`](../../lang/en.json) (ADR-0024). `pnpm run i18n:validate` checks the catalogs;
 `node scripts/i18n.mjs pseudo` writes a pseudo locale you can select with `APP_LOCALE=en-XA`.
 
 ## Container

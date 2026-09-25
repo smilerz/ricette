@@ -30,4 +30,4 @@ syntax, for example `{count, plural, one {# recipe} other {# recipes}}`, and nam
 `t('key', { count: 3 })` in Svelte and `__('key')` or a catalog key in PHP. Every language needs every plural
 category it uses; `pnpm run i18n:validate` checks this along with keys and arguments. A message that Laravel
 itself raises reaches the user through the same catalog: add a key named like the framework's (for example
-`auth.failed`) to `lang/en.json`.
+`auth.failed`) to [`lang/en.json`](../../lang/en.json).
