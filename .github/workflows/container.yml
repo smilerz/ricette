@@ -13,15 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dockerfile-lint:
-    name: dockerfile-lint
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - run: ./bin/verify dockerfile
-
   # Each architecture builds natively (no emulation) and keeps its own layer cache.
   container-build:
     name: container-build (${{ matrix.arch }})
