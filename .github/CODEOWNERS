@@ -24,9 +24,10 @@
 /docker/**          @smilerz
 
 # Authentication and authorization code
-/app/Http/Controllers/Auth/**  @smilerz
-/app/Http/Requests/Auth/**     @smilerz
-/app/Models/User.php           @smilerz
-/app/Support/EmailAddress.php  @smilerz
-/config/auth.php               @smilerz
-/config/hashing.php            @smilerz
+/app/Actions/Fortify/**                 @smilerz
+/app/Providers/FortifyServiceProvider.php  @smilerz
+/app/Models/User.php                    @smilerz
+/app/Support/EmailAddress.php           @smilerz
+/config/auth.php                        @smilerz
+/config/fortify.php                     @smilerz
+/config/hashing.php                     @smilerz

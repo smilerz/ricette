@@ -15,12 +15,11 @@ const translations = {
     'auth.password_hint': 'At least 12 characters.',
     'auth.login.submit': 'Sign in',
     'auth.register.submit': 'Create account',
-    'auth.registered': 'Your registration was received.',
     'auth.need_account': 'New here?',
     'auth.have_account': 'Already registered?',
 };
 
-function withPage(status: string | null = null): void {
+function withPage(): void {
     Object.assign(page, {
         component: 'Auth',
         props: {
@@ -28,7 +27,6 @@ function withPage(status: string | null = null): void {
             fallbackLocale: 'en',
             translations,
             auth: { user: null },
-            status,
         },
         url: '/login',
         version: null,
@@ -48,14 +46,6 @@ describe('Login', () => {
         );
         expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
         expect(screen.getByRole('link', { name: 'New here?' })).toBeInTheDocument();
-        expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    });
-
-    it('shows the translated registration notice', () => {
-        withPage('auth.registered');
-        render(Login);
-
-        expect(screen.getByRole('status')).toHaveTextContent('Your registration was received.');
     });
 });
 

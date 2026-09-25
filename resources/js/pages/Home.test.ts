@@ -26,7 +26,6 @@ function withPage(
             fallbackLocale: 'en',
             translations: messages,
             auth: { user },
-            status: null,
         },
         url: '/',
         version: null,

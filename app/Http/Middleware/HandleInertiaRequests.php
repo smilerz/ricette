@@ -24,7 +24,6 @@ final class HandleInertiaRequests extends Middleware
         $fallback = config()->string('app.fallback_locale');
 
         $user = $request->user();
-        $status = $request->session()->get('status');
 
         return [
             ...parent::share($request),
@@ -33,7 +32,6 @@ final class HandleInertiaRequests extends Middleware
                     ? ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]
                     : null,
             ],
-            'status' => is_string($status) ? $status : null,
             'locale' => $locale,
             'fallbackLocale' => $fallback,
             'translations' => Translations::for($locale, $fallback),

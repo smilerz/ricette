@@ -7,7 +7,6 @@ declare module '@inertiajs/core' {
             fallbackLocale: string;
             translations: Messages;
             auth: { user: { id: number; name: string; email: string } | null };
-            status: string | null;
         };
     }
 }

@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 
 use function Pest\Laravel\actingAs;
+use function Pest\Laravel\assertAuthenticated;
 use function Pest\Laravel\assertDatabaseCount;
 use function Pest\Laravel\assertDatabaseHas;
-use function Pest\Laravel\assertGuest;
 use function Pest\Laravel\get;
 use function Pest\Laravel\post;
 
@@ -34,13 +34,11 @@ it('shows the registration page to guests', function (): void {
         ->assertInertia(fn (Assert $page) => $page->component('Auth/Register'));
 });
 
-it('creates an account and sends the person to sign in', function (): void {
-    post('/register', registration())
-        ->assertRedirect('/login')
-        ->assertSessionHas('status', 'auth.registered');
+it('creates an account and signs the person in', function (): void {
+    post('/register', registration())->assertRedirect('/');
 
     assertDatabaseHas('users', ['email' => 'ana@example.com', 'name' => 'Ana']);
-    assertGuest();
+    assertAuthenticated();
 });
 
 it('stores the password only as an Argon2id hash', function (): void {
@@ -87,25 +85,27 @@ it('redirects a signed-in user away from registration', function (): void {
 });
 
 describe('unique account identity under duplicate and concurrent registration', function (): void {
-    it('creates nothing and gives the same response for an existing email', function (): void {
-        $first = post('/register', registration());
-        $duplicate = post('/register', registration());
+    it('refuses an existing email and creates nothing', function (): void {
+        post('/register', registration());
+        post('/logout');
 
-        expect($duplicate->status())->toBe($first->status())
-            ->and($duplicate->headers->get('Location'))->toBe($first->headers->get('Location'));
-        $duplicate->assertSessionHas('status', 'auth.registered');
+        post('/register', registration())->assertSessionHasErrors(['email' => 'validation.unique']);
+
         assertDatabaseCount('users', 1);
     });
 
     it('treats addresses that differ only in case as the same account', function (): void {
         post('/register', registration('ana@example.com'));
-        post('/register', registration('ANA@Example.com'))->assertRedirect('/login');
+        post('/logout');
+
+        post('/register', registration('ANA@Example.com'))->assertSessionHasErrors(['email' => 'validation.unique']);
 
         assertDatabaseCount('users', 1);
     });
 
-    it('does not overwrite the existing account when a duplicate registers', function (): void {
+    it('does not overwrite the existing account', function (): void {
         post('/register', registration());
+        post('/logout');
         $original = User::query()->firstOrFail()->password;
 
         post('/register', [...registration(), 'name' => 'Intruder', 'password' => 'another long password!', 'password_confirmation' => 'another long password!']);
@@ -125,14 +125,12 @@ describe('unique account identity under duplicate and concurrent registration', 
         ]))->toThrow(UniqueConstraintViolationException::class);
     });
 
-    it('gives the same response when the insert loses a race', function (): void {
+    it('gives the same error, not a server error, when the insert loses a race', function (): void {
         User::creating(static function (): never {
             throw new UniqueConstraintViolationException('sqlite', 'insert into "users"', [], new PDOException('UNIQUE constraint failed'));
         });
 
-        post('/register', registration())
-            ->assertRedirect('/login')
-            ->assertSessionHas('status', 'auth.registered');
+        post('/register', registration())->assertSessionHasErrors(['email' => 'validation.unique']);
 
         assertDatabaseCount('users', 0);
     });

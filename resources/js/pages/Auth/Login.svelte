@@ -15,10 +15,6 @@
 <main>
     <h1>{i18n.t('auth.login.title')}</h1>
 
-    {#if page.props.status}
-        <p role="status">{i18n.t(page.props.status)}</p>
-    {/if}
-
     <Form action="/login" method="post" resetOnError={['password']}>
         {#snippet children({ errors, processing }: FormComponentSlotProps)}
             <TextField

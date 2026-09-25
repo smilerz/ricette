@@ -16,8 +16,6 @@
   "auth.password_hint": "At least 12 characters.",
   "auth.login.submit": "Sign in",
   "auth.register.submit": "Create account",
-  "auth.registered": "Your registration was received. Sign in to continue.",
-  "auth.failed": "These credentials do not match our records.",
   "auth.have_account": "Already registered? Sign in",
   "auth.need_account": "New here? Create an account",
   "validation.required": "This field is required.",
@@ -25,5 +23,6 @@
   "validation.max": "This value is too long.",
   "validation.confirmed": "The confirmation does not match.",
   "validation.password.min": "Use at least 12 characters.",
-  "validation.password.max": "This value is too long."
+  "validation.password.max": "This value is too long.",
+  "validation.unique": "This email address can't be used."
 }
