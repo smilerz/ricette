@@ -18,6 +18,7 @@ added to this script rather than to a parallel command.
 ./bin/verify composer-audit         known-vulnerability audit (Composer and pnpm)
 ./bin/verify coverage               coverage floors and changed-code coverage
 ./bin/verify mutation               selective mutation testing
+./bin/verify boot-acceptance        deployment acceptance tests against the built image (needs Docker)
 ./bin/format                        apply automatic formatting
 ```
 
@@ -43,6 +44,7 @@ inside the scripts. The PHP and frontend targets also need the toolchain in
 | `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `dependency-audit` |
 | `coverage` | PHP and frontend coverage floors plus changed-code coverage | `coverage` |
 | `mutation` | Mutation testing of critical pure logic | `mutation` |
+| `boot-acceptance` | Boot, migration, database-retry, credential-separation and reverse-proxy tests against the image (`IMAGE`, default `ricette:ci`) | `boot-acceptance` |
 
 ## Contribution-policy rules
 

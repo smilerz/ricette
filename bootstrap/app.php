@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\TrustedProxies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Env;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,6 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $trusted = Env::get('TRUSTED_PROXIES');
+
+        $middleware->trustProxies(
+            at: TrustedProxies::fromEnvironment(is_string($trusted) ? $trusted : null),
+            headers: TrustedProxies::HEADERS,
+        );
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
