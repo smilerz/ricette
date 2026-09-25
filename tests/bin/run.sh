@@ -94,7 +94,7 @@ case "$*" in *"${FAKE_PHP_FAIL_ON:-__none__}"*) exit 1 ;; esac
 PHP
   cat >"$d/bin/server" <<'SERVER'
 #!/bin/sh
-echo "server $* [user=${DB_USERNAME-unset} migration-user=${DB_MIGRATION_USERNAME-unset} migration-pass=${DB_MIGRATION_PASSWORD-unset}]" >>"$ENTRYPOINT_LOG"
+echo "server $*" >>"$ENTRYPOINT_LOG"
 SERVER
   chmod +x "$d/bin/php" "$d/bin/server"
   echo "$d"
@@ -115,14 +115,6 @@ expect 0 "entrypoint: waits for the database before migrating" \
   bash -c "grep -n 'php artisan' '$e/log' | head -2 | tr '\n' ' ' | grep -q 'app:wait-for-database.*migrate --force'"
 expect 0 "entrypoint: starts the server with its arguments after migrating" \
   bash -c "tail -1 '$e/log' | grep -q '^server --flag'"
-
-e=$(setup_entrypoint ep-migration-creds)
-expect 0 "entrypoint: boot with separate migration credentials succeeds" \
-  run_entrypoint "$e" DB_USERNAME=app DB_PASSWORD=apppw DB_MIGRATION_USERNAME=migrator DB_MIGRATION_PASSWORD=migpw
-expect 0 "entrypoint: migration and wait steps use the migration credentials" \
-  bash -c "grep 'php artisan' '$e/log' | grep -vq 'user=migrator pass=migpw'; test \$? -eq 1"
-expect 0 "entrypoint: the server runs with runtime credentials and without migration credentials" \
-  bash -c "tail -1 '$e/log' | grep -q 'user=app migration-user=unset migration-pass=unset'"
 
 e=$(setup_entrypoint ep-migrate-fails)
 expect 1 "entrypoint: a failed migration stops the boot" run_entrypoint "$e" FAKE_PHP_FAIL_ON="migrate --force"

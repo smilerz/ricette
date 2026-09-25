@@ -29,17 +29,9 @@ No manual database step is needed on first install or on upgrade. If the databas
 | `DB_DATABASE` | For SQLite, the file path (default `/data/database.sqlite`). For PostgreSQL, the database name. |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL connection |
 | `DB_WAIT_TIMEOUT` | Seconds to wait for the database at boot, retrying with backoff (default 60) |
-| `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD` | Optional schema-altering credentials used only during the boot-time migration |
 
-With PostgreSQL you can run the application as a least-privilege role and migrate as a more privileged one. The
-migration role must own the schema objects, and the runtime role needs default privileges on what it creates:
-
-```sql
-ALTER DEFAULT PRIVILEGES FOR ROLE ricette_migrator IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ricette_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE ricette_migrator IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO ricette_app;
-```
+Migration and the running application use the same database login, so it needs the right to create and alter
+tables in its database.
 
 ## Reverse proxy
 
