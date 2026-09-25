@@ -49,8 +49,8 @@ add_commit() { # add_commit <repo> <signoff:yes|no> <path>...
   if [ "$s" = yes ]; then git -C "$d" commit -q -s -m "change"; else git -C "$d" commit -q -m "change"; fi
 }
 
-dco() { CHECK_REPO=$1 DCO_BASE=main DCO_HEAD=topic "$here/bin/checks/dco"; }
-cp_check() { CHECK_REPO=$1 CP_BASE=main CP_HEAD=topic CP_LABELS=${2:-} "$here/bin/checks/contribution-policy"; }
+dco() { CHECK_REPO=$1 DCO_BASE=main DCO_HEAD=topic DCO_PR_AUTHOR=${2:-} "$here/bin/checks/dco"; }
+cp_check() { CHECK_REPO=$1 CP_BASE=main CP_HEAD=topic CP_LABELS=${2:-} CP_PR_AUTHOR=${3:-} "$here/bin/checks/contribution-policy"; }
 
 # --- DCO
 r=$(new_repo dco-signed); add_commit "$r" yes docs/a.md
@@ -82,6 +82,34 @@ expect 1 "cp: user-facing change without translation keys fails" cp_check "$r"
 r=$(new_repo cp-ui-lang); add_commit "$r" yes resources/js/App.svelte tests/app.test.js docs/ui.md lang/en/app.json
 expect 0 "cp: user-facing change with translation keys passes" cp_check "$r"
 
+
+# --- Dependabot exemption (ADR-0026)
+bot_email='49699333+dependabot[bot]@users.noreply.github.com'
+add_bot_commit() { # add_bot_commit <repo> <author-email> <path>...
+  local d=$1 email=$2
+  shift 2
+  local p
+  for p in "$@"; do
+    mkdir -p "$d/$(dirname "$p")"
+    echo "$RANDOM" >>"$d/$p"
+  done
+  git -C "$d" add -A
+  git -C "$d" commit -q -m "bump" --author="dependabot[bot] <$email>"
+}
+r=$(new_repo dco-bot); add_bot_commit "$r" "$bot_email" composer.lock
+expect 0 "dco: unsigned Dependabot commit passes for a Dependabot PR" dco "$r" "dependabot[bot]"
+expect 1 "dco: the same commit fails for a PR opened by anyone else" dco "$r" "someone"
+expect 1 "dco: the same commit fails when no PR author is known" dco "$r"
+r=$(new_repo dco-bot-impostor); add_bot_commit "$r" "human@example.com" composer.lock
+expect 1 "dco: a Dependabot PR carrying a non-Dependabot unsigned commit fails" dco "$r" "dependabot[bot]"
+r=$(new_repo dco-bot-mixed); add_bot_commit "$r" "$bot_email" composer.lock; add_commit "$r" no docs/a.md
+expect 1 "dco: an unsigned human commit on a Dependabot PR fails" dco "$r" "dependabot[bot]"
+
+r=$(new_repo cp-bot-deps); add_bot_commit "$r" "$bot_email" Dockerfile composer.lock package.json pnpm-lock.yaml .github/workflows/ci.yml
+expect 0 "cp: Dependabot dependency update needs no new tests or docs" cp_check "$r" "" "dependabot[bot]"
+expect 1 "cp: the same change from another author still needs tests and docs" cp_check "$r" "" "someone"
+r=$(new_repo cp-bot-code); add_bot_commit "$r" "$bot_email" Dockerfile app/Thing.php
+expect 1 "cp: a Dependabot PR that also changes application code follows the normal rules" cp_check "$r" "" "dependabot[bot]"
 
 # --- docker/entrypoint.sh
 setup_entrypoint() { # setup_entrypoint <name>: fake php and server on PATH, echoes the sandbox dir

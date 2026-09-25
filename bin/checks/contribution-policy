@@ -4,12 +4,18 @@
 # exception:no-test / exception:no-doc are maintainer-applied labels.
 #   CP_BASE / CP_HEAD  range to check (default: origin/main...HEAD)
 #   CP_LABELS          comma-separated PR label names
+#   CP_PR_AUTHOR       login of the pull request author (CI sets it from the event)
+#
+# Dependabot exemption (ADR-0026): a pull request authored by dependabot[bot] that changes
+# only dependency and pipeline files is not required to add tests or documentation. A
+# Dependabot PR touching anything else follows the normal rules. No other author is exempt.
 set -euo pipefail
 cd "${CHECK_REPO:-$(dirname "${BASH_SOURCE[0]}")/../..}"
 
 base=${CP_BASE:-origin/main}
 head=${CP_HEAD:-HEAD}
 labels=",${CP_LABELS:-},"
+pr_author=${CP_PR_AUTHOR:-}
 
 # Path classes. Extended by the Application Foundation PR as the layout appears.
 is_behavioral() { case $1 in app/*|src/*|routes/*|database/*|resources/*|config/*|docker/*|Dockerfile) return 0 ;; esac; return 1; }
@@ -18,15 +24,24 @@ is_test() { case $1 in tests/*|*.test.*|*.spec.*) return 0 ;; esac; return 1; }
 is_doc() { case $1 in docs/*|*.md) return 0 ;; esac; return 1; }
 is_translation() { case $1 in lang/*|resources/lang/*) return 0 ;; esac; return 1; }
 
-behavioral=0 user_facing=0 tests=0 docs=0 translations=0
+# Files a routine dependency update may change.
+is_dependency_file() { case $1 in composer.json|composer.lock|package.json|pnpm-lock.yaml|Dockerfile|.github/workflows/*.yml) return 0 ;; esac; return 1; }
+
+behavioral=0 user_facing=0 tests=0 docs=0 translations=0 only_dependency_files=1
 while IFS= read -r f; do
   [ -z "$f" ] && continue
+  is_dependency_file "$f" || only_dependency_files=0
   is_behavioral "$f" && behavioral=1
   is_user_facing "$f" && user_facing=1
   is_test "$f" && tests=1
   is_doc "$f" && docs=1
   is_translation "$f" && translations=1
 done < <(git diff --name-only "$base...$head")
+
+if [ "$pr_author" = "dependabot[bot]" ] && [ $only_dependency_files -eq 1 ]; then
+  echo "contribution-policy: ok (verified Dependabot dependency update)"
+  exit 0
+fi
 
 fail=0
 if [ $behavioral -eq 1 ]; then

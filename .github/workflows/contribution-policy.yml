@@ -21,3 +21,4 @@ jobs:
           CP_BASE: ${{ github.event.pull_request.base.sha }}
           CP_HEAD: ${{ github.event.pull_request.head.sha }}
           CP_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          CP_PR_AUTHOR: ${{ github.event.pull_request.user.login }}

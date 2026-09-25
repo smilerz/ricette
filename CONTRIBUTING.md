@@ -17,7 +17,8 @@ Signed-off-by: Your Name <your.email@example.com>
 
 Add it with `git commit -s`. Pull requests without sign-off on every commit
 must not be merged. The `dco` check (`./bin/verify dco`) enforces this on
-every pull request.
+every pull request. The only exemption is commits authored by Dependabot in a Dependabot pull request
+(ADR-0026).
 
 The DCO confirms you have the right to submit your work under this
 project's license. It does **not** give the project unilateral rights to
