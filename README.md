@@ -1,63 +1,42 @@
-# Ricette (working name)
+# Ricette
 
-A recipe and meal-planning application. Foundation 0 (licensing, governance, security,
-testing, documentation and AI-development rules) is established, and the first application
-slices are being built from the Issues on the Ricette Project board.
+Ricette is a recipe and meal-planning app you can run yourself. "Ricette" is the Italian word for recipes and is a working name, not a final one.
 
-The application begins deliberately nameless and is developed publicly on
-GitHub. `Ricette` (Italian for "recipes") is a working directory name, not
-a final product name.
+It's early. You can sign up, sign in and create a household; recipes, meal plans and shopping lists are what gets built next. Nothing is released yet.
 
-## Quick start
+The same code will also power a hosted version for people who would rather not run it themselves. Self-hosting stays free and doesn't depend on any outside service.
+
+## Try it
+
+You need PHP, Composer, Node and pnpm. `./bin/setup` checks your machine and tells you what's missing.
 
 ```bash
-./bin/setup        # check your tools and install dependencies
-./bin/dev --seed   # run the app with hot reload and a demo account at http://localhost:8000
-./bin/verify       # run every check CI runs
+./bin/setup
+./bin/dev --seed
 ```
 
-See `docs/development/setup.md` for the tools you need and the VS Code debugging setup, and `CONTRIBUTING.md` for
-how to make a change.
+Then open <http://localhost:8000>. The demo login is `demo@example.com` with the password `correct horse battery staple`.
 
-## Two deployment paths
+`./bin/verify` runs every check the project's CI runs. `docs/development/setup.md` has the details, including debugging in VS Code.
 
-- **Community / self-hosted** — open source, free to use, no required
-  vendor account or external infrastructure, fully useful when
-  disconnected from the project's hosted services.
-- **Hosted / freemium** — the same core application, plus managed
-  infrastructure and commercial capabilities, monetized through
-  capabilities and entitlements rather than a forked codebase.
+## Built with
 
-## Stack
+Laravel 13 and Svelte 5, connected with Inertia. SQLite by default, PostgreSQL if you prefer it. It ships as a container image. The reasons behind these choices are in `docs/adr/`.
 
-Laravel 13 (backend) · Svelte 5 + TypeScript (frontend) · Inertia 3 (web
-integration) · SQLite (self-hosted) · PostgreSQL (hosted) · OCI/Docker
-image (release artifact).
+## Contributing
 
-See `docs/adr/` for the reasoning behind each of these choices.
+Read `CONTRIBUTING.md` first. Work is tracked as issues on the project board, and a change should start from one. Every commit needs a sign-off (the `-s` flag when you commit); we use the Developer Certificate of Origin instead of a contributor agreement.
 
-## Where to look
+Questions are in `SUPPORT.md`. Security problems are in `SECURITY.md`; please don't report those as public issues.
 
-| Question | Where |
-|---|---|
-| Why does the architecture look like this? | `docs/architecture/principles.md`, `docs/adr/` |
-| What am I allowed to change, and how? | `GOVERNANCE.md`, `CONTRIBUTING.md` |
-| Where did this project's requirements come from? | `PROVENANCE.md` |
-| What can AI coding agents do here? | `AGENTS.md` |
-| What's the threat model? | `docs/security/threat-model.md` |
-| How do I test, style, document, translate, and make things accessible? | `docs/development/` |
-| How do I set up my machine and run the app? | `docs/development/setup.md`, `./bin/setup` |
-| What should I work on? | The Issues on the Ricette Project board (`IMPLEMENTATION_PLAN.md` is historical provenance) |
-| How do I run the app in production? | `docs/operations/deployment.md` |
-| How do I report a security issue? | `SECURITY.md` |
-| Where do I ask for help? | `SUPPORT.md` |
+## More
+
+- `docs/operations/deployment.md`: running it for real
+- `docs/architecture/principles.md` and `docs/adr/`: how it's designed, and why
+- `GOVERNANCE.md`: who decides what
+- `AGENTS.md`: the rules AI coding agents follow here
+- `PROVENANCE.md`: where the requirements came from
 
 ## License
 
-MPL-2.0 — see `LICENSE`. Contributions are certified under the Developer
-Certificate of Origin (DCO), not a CLA — see `CONTRIBUTING.md`.
-
-## Status
-
-Early development. Each slice of the application is built from an Issue with acceptance criteria and merged only
-when the checks pass. Nothing here is released yet.
+MPL-2.0. See `LICENSE`.
