@@ -23,6 +23,23 @@ php artisan serve
 
 Use `pnpm run dev` for hot module replacement while developing.
 
+## Live review and debugging in VS Code
+
+`./bin/dev` starts what you need to watch the app change as code is written: the PHP server on
+`http://localhost:8000` and Vite hot module replacement on `:5173`, both bound to localhost. Saving a Svelte page,
+a stylesheet or a PHP file shows up in the browser without a rebuild. It creates `.env`, an application key and the
+database on first run and applies migrations every time. Add `--seed` to create a demo account
+(`demo@example.com`, password `correct horse battery staple`) with a household. The demo seeder refuses to run in
+production because those credentials are public.
+
+In VS Code (or VS Code attached to WSL with the Remote - WSL extension), accept the recommended extensions and pick
+**Ricette: app + PHP debugger + browser** in Run and Debug. It starts `./bin/dev`, listens for Xdebug on port 9003
+and opens the app in Edge; change `msedge` to `chrome` in `.vscode/launch.json` if you prefer. Breakpoints in PHP
+and in the Svelte source both work.
+
+PHP debugging needs the Xdebug extension for the PHP you run. Without it `./bin/dev` still works and says the debugger
+is off. With Xdebug installed it is switched on automatically (`XDEBUG_MODE=debug`, client port 9003).
+
 ## Everything CI runs
 
 ```bash

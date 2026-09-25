@@ -156,5 +156,9 @@ e=$(setup_entrypoint ep-postgres)
 expect 0 "entrypoint: PostgreSQL boot does not create a SQLite file" run_entrypoint "$e" DB_CONNECTION=pgsql
 expect 1 "entrypoint: no SQLite file for PostgreSQL" test -e "$e/data/db.sqlite"
 
+
+# --- bin/dev
+expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"
+
 echo "selftest: $pass passed, $fail failed"
 [ $fail -eq 0 ]

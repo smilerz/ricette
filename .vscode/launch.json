@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PHP: Listen for Xdebug",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": { "${workspaceFolder}": "${workspaceFolder}" }
+    },
+    {
+      "name": "Browser: http://localhost:8000",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Ricette: app + PHP debugger + browser",
+      "configurations": ["PHP: Listen for Xdebug", "Browser: http://localhost:8000"],
+      "preLaunchTask": "Ricette: start dev servers",
+      "stopAll": true
+    }
+  ]
+}

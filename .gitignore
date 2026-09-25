@@ -4,7 +4,11 @@ Thumbs.db
 
 # Editors
 .idea/
-.vscode/
+!.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
 *.swp
 
 # Environment / secrets

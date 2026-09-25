@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Runs the application for live review and debugging: the PHP server plus Vite hot module
+# replacement, so a change to a Svelte page, a stylesheet or PHP code shows up in the browser
+# as soon as the file is saved.
+#
+#   ./bin/dev            start both servers (PHP on :8000, Vite on :5173, localhost only)
+#   ./bin/dev --seed     also create the demo account and household first (never in production)
+#
+# Open http://localhost:8000. If the Xdebug extension is installed, PHP debugging is enabled on
+# port 9003 for the VS Code "Listen for Xdebug" configuration (.vscode/launch.json).
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+[ -f .env ] || cp .env.example .env
+grep -q '^APP_KEY=.\+' .env || php artisan key:generate --no-interaction
+[ -d vendor ] || composer install --no-interaction
+[ -d node_modules ] || pnpm install
+
+php artisan migrate --force --no-interaction
+if [ "${1:-}" = "--seed" ]; then
+  php artisan db:seed --class=DemoSeeder --force --no-interaction
+fi
+
+if php -r 'exit(extension_loaded("xdebug") ? 0 : 1);'; then
+  export XDEBUG_MODE=debug
+  export XDEBUG_CONFIG="client_host=127.0.0.1 client_port=9003 start_with_request=yes connect_timeout_ms=200"
+  echo "dev: Xdebug is on (listening for VS Code on 9003)"
+else
+  echo "dev: Xdebug is not installed; the PHP debugger is off (see docs/development/setup.md)"
+fi
+
+trap 'kill 0' EXIT INT TERM
+
+# Several workers so the page request and the requests it triggers do not queue behind one another.
+PHP_CLI_SERVER_WORKERS=4 php artisan serve --host=127.0.0.1 --port=8000 &
+pnpm run dev -- --host 127.0.0.1 --port 5173 &
+
+wait -n
