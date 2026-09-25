@@ -2,15 +2,27 @@
 # DCO 1.1 sign-off enforcement (Foundation 0 §10). Every non-merge commit in
 # the range must carry a Signed-off-by trailer.
 #   DCO_BASE / DCO_HEAD  range to check (default: origin/main..HEAD)
+#   DCO_PR_AUTHOR        login of the pull request author (CI sets it from the event)
+#
+# Dependabot exemption (ADR-0026): a commit is exempt only when the PR author is
+# dependabot[bot] AND the commit's author is Dependabot's own noreply identity. A bot
+# cannot certify origin, and no other identity is exempt.
 set -euo pipefail
 cd "${CHECK_REPO:-$(dirname "${BASH_SOURCE[0]}")/../..}"
 
 base=${DCO_BASE:-origin/main}
 head=${DCO_HEAD:-HEAD}
+pr_author=${DCO_PR_AUTHOR:-}
+
+DEPENDABOT_LOGIN='dependabot[bot]'
+DEPENDABOT_EMAIL='49699333+dependabot[bot]@users.noreply.github.com'
 
 missing=0
 while IFS= read -r sha; do
   [ -z "$sha" ] && continue
+  if [ "$pr_author" = "$DEPENDABOT_LOGIN" ] && [ "$(git log -1 --format=%ae "$sha")" = "$DEPENDABOT_EMAIL" ]; then
+    continue
+  fi
   if ! git log -1 --format=%B "$sha" | git interpret-trailers --parse | grep -Eq '^Signed-off-by: .+ <.+>$'; then
     echo "missing Signed-off-by: $(git log -1 --format='%h %s' "$sha")" >&2
     missing=1

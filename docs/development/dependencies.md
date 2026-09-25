@@ -58,3 +58,11 @@ pinned (for example, an action distributed only through a mutable reference)
 needs an explicit justification in the PR that adds it.
 
 Hosted cloud deployments should use short-lived federated/OIDC credentials instead of long-lived cloud secrets when supported.
+
+## Dependency update pull requests
+
+Dependabot opens the update PRs (ADR-0026). It is exempt from the DCO sign-off, and from the requirement to
+add tests and documentation when it changes only dependency and pipeline files; every other check still
+applies, and the maintainer merges each PR. Patch and minor updates are routine when checks pass. A major
+version needs an explicit compatibility and release-note review before merge; being a non-LTS line is not by
+itself a reason to reject it.
