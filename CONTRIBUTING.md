@@ -30,10 +30,11 @@ full rationale for choosing DCO over a CLA.
 
 ## Getting started
 
-1. Fork or clone the repository and run `./bin/setup`. It checks your tools, tells you exactly what is missing and how
-   to get it, and installs the project's dependencies. It never installs system software for you.
-2. Run `./bin/dev --seed` and open <http://localhost:8000> for the app with hot reload and a demo account. VS Code
-   users: accept the recommended extensions and use the **Ricette: app + PHP debugger + browser** launch.
+1. Clone the repository and open it in the dev container (VS Code "Reopen in Container", or a Codespace). It installs
+   PHP, Node, the project dependencies and the test browser on first start. Without a container, run `./bin/setup`,
+   which lists any tools your machine lacks and installs the project's dependencies.
+2. Run `./bin/dev --seed` and open <http://localhost:8000> for the app with hot reload and a demo account. In VS Code,
+   use the **Ricette: app + PHP debugger + browser** launch to debug.
 3. Run `./bin/verify` to run every check CI runs. Some targets need optional tools (Xdebug or pcov for coverage,
    Docker for the container checks); `./bin/verify lint php-static php-test frontend` is the fast subset.
 

@@ -4,15 +4,31 @@ The application is Laravel 13 with Svelte 5 and Inertia 3 (ADR-0002, ADR-0003).
 
 ## Quick start
 
+The recommended way is the dev container in [`.devcontainer/`](../../.devcontainer/devcontainer.json). It has PHP 8.4
+with the extensions the app needs, plus Xdebug and pcov, Node 25, pnpm, the GitHub CLI and Docker access. On first
+start it runs `./bin/setup` and installs the Playwright browser, so there is nothing to install by hand.
+
+- **VS Code:** install the Dev Containers extension, open the repository, choose "Reopen in Container". You need
+  Docker Desktop or Docker Engine. On Windows, keep the repository in WSL.
+- **GitHub Codespaces:** create a codespace on the repository. Nothing runs locally.
+
+Then start the app:
+
 ```bash
-./bin/setup        # checks your tools, says exactly what is missing, then installs the project's dependencies
-./bin/dev --seed   # runs the app with hot reload and a demo account at http://localhost:8000
+./bin/dev --seed   # the app with hot reload and a demo account at http://localhost:8000
 ```
 
-`./bin/setup --check` only checks and changes nothing. `./bin/setup` never installs system software for you; it
-tells you what to install and how.
+### Without a container
 
-## What you need
+```bash
+./bin/setup        # checks your tools, says exactly what is missing, then installs the project's dependencies
+./bin/dev --seed
+```
+
+`./bin/setup --check` only checks and changes nothing. It does not install system software (PHP, Node and so on),
+because that differs on every machine; it tells you what to install and how.
+
+## What you need without the dev container
 
 | Tool | Version | Notes |
 | --- | --- | --- |

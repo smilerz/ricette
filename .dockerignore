@@ -21,3 +21,4 @@ public/build
 public/hot
 database/*.sqlite
 *.md
+.devcontainer
