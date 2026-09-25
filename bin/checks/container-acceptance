@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deployment acceptance tests against the built image (MVP deploy/boot requirements).
-#   ./bin/verify boot-acceptance            builds nothing; expects the image in IMAGE (default ricette:ci)
+#   ./bin/verify container-acceptance            builds nothing; expects the image in IMAGE (default ricette:ci)
 #
 # 1. SQLite: a fresh volume reaches the current schema with no manual step, and the
 #    schema survives a container restart.

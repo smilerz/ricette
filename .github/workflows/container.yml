@@ -95,8 +95,8 @@ jobs:
           output-format: table
           only-fixed: true
 
-  boot-acceptance:
-    name: boot-acceptance
+  container-acceptance:
+    name: container-acceptance
     needs: container-build
     runs-on: ubuntu-24.04
     steps:
@@ -113,6 +113,6 @@ jobs:
           push: false
           tags: ricette:ci
           cache-from: type=gha,scope=amd64
-      - run: ./bin/verify boot-acceptance
+      - run: ./bin/verify container-acceptance
         env:
           IMAGE: ricette:ci
