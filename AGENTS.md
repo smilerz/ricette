@@ -170,20 +170,25 @@ satisfied by ADR-0011's local reviewer alone.
 
 ## Decision authority
 
-Deciding how to build something is not always yours to decide (ADR-0027). Stay inside the Issue's
-acceptance criteria and existing decisions on your own. **Stop and present options, with a recommendation and
-the trade-offs, and wait for the maintainer, before building, if a choice:**
+Follow ADR-0027. **Routine implementation choices are yours** when they are consistent with authoritative
+requirements and accepted decisions, stay inside the Issue's acceptance envelope, and do not materially alter
+product behavior, architecture, security or privacy posture, operator obligations, persistent data or
+interfaces, governance, or future architectural optionality.
 
-- adds or replaces a runtime, framework, service, package or other dependency (apply the dependency policy
-  first: framework, then mature package, then custom code);
-- picks among ways to satisfy a requirement the Issue marks as open;
-- sets security or privacy posture (privilege boundaries, what an error reveals, password rules);
-- changes what a self-hosting operator must provision, configure or run;
-- shapes data, schema or interfaces that later Issues depend on;
-- changes a governance file or a check that gates merging.
+**Stop, present the alternatives with a recommendation and the trade-offs, and wait for the maintainer, before
+implementing** a choice that has not been authorized and that materially establishes or changes:
 
-If you are unsure whether a choice is on this list, treat it as if it were. An ADR you write is **Proposed**;
-it becomes Accepted only when the maintainer says so, and it does not authorize the work it describes.
+- product or user-visible behavior where the requirements leave a meaningful trade-off open;
+- application or deployment architecture;
+- major frameworks, runtimes, infrastructure services or persistent dependencies;
+- security, privacy, trust, authentication or authorization posture;
+- what an operator must deploy, provision or configure;
+- persistent data models, or shared or external interfaces, with meaningful migration or compatibility cost;
+- governance, authority or enforcement policy;
+- anything expensive or difficult to reverse.
+
+If you are unsure whether a choice is material, treat it as material. An ADR you write is **Proposed**; it does
+not authorize implementing what it proposes, and it becomes Accepted only when the maintainer says so.
 
 ## Agent merge exception
 
