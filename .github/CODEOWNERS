@@ -22,3 +22,12 @@
 /Dockerfile         @smilerz
 /.dockerignore      @smilerz
 /docker/**          @smilerz
+
+# Authentication and authorization code
+/app/Actions/Fortify/**                 @smilerz
+/app/Providers/FortifyServiceProvider.php  @smilerz
+/app/Models/User.php                    @smilerz
+/app/Support/EmailAddress.php           @smilerz
+/config/auth.php                        @smilerz
+/config/fortify.php                     @smilerz
+/config/hashing.php                     @smilerz

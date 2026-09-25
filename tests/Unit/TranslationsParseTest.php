@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Support\Translations;
 
 covers(Translations::class);
+mutates(Translations::class);
 
 it('parses a flat catalog', function (): void {
     expect(Translations::parse('{"a":"A","b.one":"B"}', 'en.json'))->toBe(['a' => 'A', 'b.one' => 'B']);
