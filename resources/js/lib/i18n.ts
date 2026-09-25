@@ -1,5 +1,7 @@
+import { IntlMessageFormat } from 'intl-messageformat';
+
 export type Messages = Readonly<Record<string, string>>;
-export type Params = Readonly<Record<string, string | number>>;
+export type Params = Readonly<Record<string, string | number | Date>>;
 
 export interface Translator {
     readonly locale: string;
@@ -11,42 +13,52 @@ export interface Translator {
     ) => string;
 }
 
-const PLACEHOLDER = /\{(\w+)\}/g;
-
-function interpolate(template: string, params: Params | undefined): string {
-    if (params === undefined) {
-        return template;
-    }
-
-    return template.replace(PLACEHOLDER, (placeholder, name: string) => {
-        const value = params[name];
-
-        return value === undefined ? placeholder : String(value);
-    });
-}
-
 /**
  * Builds the single translation entry point for Svelte code (ADR-0024).
  *
- * Messages come from the flat `lang/{locale}.json` catalogs. A message with a
- * numeric `count` parameter is resolved by CLDR plural category: the key
- * `items.one`, `items.other`, and so on, falling back to `items.other`, then to
- * the bare key. A missing key renders as the key itself so the gap is visible.
+ * Catalog values are ICU MessageFormat strings, so plurals, selects and formatted
+ * arguments follow each language's CLDR rules. A missing key, a message that fails to
+ * parse, and a message whose arguments were not supplied all render as the key itself,
+ * so the gap is visible instead of showing a broken sentence. `bin/verify` catches
+ * invalid messages before they ship.
  */
 export function createTranslator(messages: Messages, locale: string): Translator {
-    const plurals = new Intl.PluralRules(locale);
+    const formatters = new Map<string, IntlMessageFormat | null>();
+
+    function formatterFor(key: string, message: string): IntlMessageFormat | null {
+        if (!formatters.has(key)) {
+            try {
+                formatters.set(key, new IntlMessageFormat(message, locale));
+            } catch {
+                formatters.set(key, null);
+            }
+        }
+
+        return formatters.get(key) ?? null;
+    }
 
     return {
         locale,
         t(key, params) {
-            let template = messages[key];
+            const message = messages[key];
 
-            if (typeof params?.count === 'number') {
-                const category = plurals.select(params.count);
-                template = messages[`${key}.${category}`] ?? messages[`${key}.other`] ?? template;
+            if (message === undefined) {
+                return key;
             }
 
-            return interpolate(template ?? key, params);
+            const formatter = formatterFor(key, message);
+
+            if (formatter === null) {
+                return key;
+            }
+
+            try {
+                const formatted = formatter.format(params);
+
+                return Array.isArray(formatted) ? formatted.join('') : String(formatted);
+            } catch {
+                return key;
+            }
         },
         formatNumber: (value, options) => new Intl.NumberFormat(locale, options).format(value),
         formatDate: (value, options) =>

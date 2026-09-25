@@ -24,5 +24,9 @@
   "validation.confirmed": "The confirmation does not match.",
   "validation.password.min": "Use at least 12 characters.",
   "validation.password.max": "This value is too long.",
-  "validation.unique": "This email address can't be used."
+  "validation.unique": "This email address can't be used.",
+  "auth.failed": "These credentials do not match our records.",
+  "auth.password": "The provided password is incorrect.",
+  "auth.throttle": "Too many attempts. Please wait a moment and try again.",
+  "validation.max.string": "This value is too long."
 }

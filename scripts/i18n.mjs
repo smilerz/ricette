@@ -3,24 +3,15 @@
 //
 //   node scripts/i18n.mjs validate          check the catalogs against the source
 //   node scripts/i18n.mjs pseudo [--rtl]    write lang/en-XA.json (or en-XB.json)
+//
+// Catalog values are ICU MessageFormat strings.
+import { parse, TYPE } from '@formatjs/icu-messageformat-parser';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REFERENCE_LOCALE = 'en';
-const PLURAL_SUFFIX = /\.(zero|one|two|few|many|other)$/;
-const PLACEHOLDER = /\{(\w+)\}/g;
 const GENERATED_LOCALES = new Set(['en-XA', 'en-XB']);
-
-/** @param {string} key */
-export function baseKey(key) {
-    return key.replace(PLURAL_SUFFIX, '');
-}
-
-/** @param {string} message */
-function placeholdersOf(message) {
-    return new Set([...message.matchAll(PLACEHOLDER)].map((match) => match[1] ?? ''));
-}
 
 /**
  * @param {string} dir
@@ -71,12 +62,90 @@ export function usedKeys(root) {
             }
 
             for (const match of readFileSync(file, 'utf8').matchAll(pattern)) {
-                used.set(baseKey(match[1] ?? ''), relative(root, file));
+                used.set(match[1] ?? '', relative(root, file));
             }
         }
     }
 
     return used;
+}
+
+const KIND = /** @type {Record<number, string>} */ ({
+    [TYPE.argument]: 'argument',
+    [TYPE.number]: 'number',
+    [TYPE.date]: 'date',
+    [TYPE.time]: 'time',
+    [TYPE.select]: 'select',
+    [TYPE.plural]: 'plural',
+    [TYPE.tag]: 'tag',
+});
+
+/**
+ * Calls `visit` for every element, descending into plural/select options and tags.
+ *
+ * @param {import('@formatjs/icu-messageformat-parser').MessageFormatElement[]} elements
+ * @param {(element: import('@formatjs/icu-messageformat-parser').MessageFormatElement) => void} visit
+ */
+function walk(elements, visit) {
+    for (const element of elements) {
+        visit(element);
+
+        if (element.type === TYPE.plural || element.type === TYPE.select) {
+            for (const option of Object.values(element.options)) {
+                walk(option.value, visit);
+            }
+        } else if (element.type === TYPE.tag) {
+            walk(element.children, visit);
+        }
+    }
+}
+
+/**
+ * The arguments a message takes, as "name:kind" strings, and the problems found in it.
+ *
+ * @param {string} message
+ * @param {string} locale
+ * @returns {{ args: Set<string>, problems: string[] }}
+ */
+export function analyze(message, locale) {
+    /** @type {string[]} */
+    const problems = [];
+    const args = new Set();
+    /** @type {import('@formatjs/icu-messageformat-parser').MessageFormatElement[]} */
+    let ast;
+
+    try {
+        ast = parse(message);
+    } catch (error) {
+        return {
+            args,
+            problems: [
+                `invalid ICU message: ${error instanceof Error ? error.message : String(error)}`,
+            ],
+        };
+    }
+
+    const required = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+
+    walk(ast, (element) => {
+        const kind = KIND[element.type];
+
+        if (kind !== undefined) {
+            args.add(`${'value' in element ? String(element.value) : ''}:${kind}`);
+        }
+
+        if (element.type === TYPE.plural && element.pluralType !== 'ordinal') {
+            const missing = required.filter((category) => !(category in element.options));
+
+            if (missing.length > 0) {
+                problems.push(
+                    `plural "${element.value}" for ${locale} needs categories: ${missing.join(', ')}`,
+                );
+            }
+        }
+    });
+
+    return { args, problems };
 }
 
 /**
@@ -127,59 +196,55 @@ export function validate(root) {
     }
 
     /** @type {Map<string, Set<string>>} */
-    const referencePlaceholders = new Map();
-
-    for (const [key, message] of Object.entries(reference)) {
-        const base = baseKey(key);
-        const merged = referencePlaceholders.get(base) ?? new Set();
-
-        for (const name of placeholdersOf(message)) {
-            merged.add(name);
-        }
-
-        referencePlaceholders.set(base, merged);
-    }
+    const referenceArgs = new Map();
 
     for (const [locale, messages] of catalogs) {
-        if (locale === REFERENCE_LOCALE || GENERATED_LOCALES.has(locale)) {
+        if (GENERATED_LOCALES.has(locale)) {
             continue;
         }
 
-        const bases = new Set(Object.keys(messages).map(baseKey));
+        for (const [key, message] of Object.entries(messages)) {
+            const result = analyze(message, locale);
 
-        for (const base of referencePlaceholders.keys()) {
-            if (!bases.has(base)) {
-                problems.push(`${locale}.json: missing key "${base}"`);
+            for (const problem of result.problems) {
+                problems.push(`${locale}.json: "${key}": ${problem}`);
             }
-        }
 
-        for (const base of bases) {
-            if (!referencePlaceholders.has(base)) {
+            if (locale === REFERENCE_LOCALE) {
+                referenceArgs.set(key, result.args);
+                continue;
+            }
+
+            const expected = referenceArgs.get(key) ?? analyzeReference(reference, key);
+
+            if (expected !== undefined && !sameSet(result.args, expected)) {
                 problems.push(
-                    `${locale}.json: unknown key "${base}" (not in ${REFERENCE_LOCALE}.json)`,
+                    `${locale}.json: "${key}" takes different arguments than ${REFERENCE_LOCALE}.json`,
                 );
             }
         }
 
-        for (const [key, message] of Object.entries(messages)) {
-            const expected = referencePlaceholders.get(baseKey(key));
+        if (locale === REFERENCE_LOCALE) {
+            continue;
+        }
 
-            if (expected === undefined) {
-                continue;
+        for (const key of Object.keys(reference)) {
+            if (!(key in messages)) {
+                problems.push(`${locale}.json: missing key "${key}"`);
             }
+        }
 
-            const actual = placeholdersOf(message);
-
-            if (actual.size > 0 && ![...actual].every((name) => expected.has(name))) {
+        for (const key of Object.keys(messages)) {
+            if (!(key in reference)) {
                 problems.push(
-                    `${locale}.json: "${key}" uses placeholders that ${REFERENCE_LOCALE}.json does not`,
+                    `${locale}.json: unknown key "${key}" (not in ${REFERENCE_LOCALE}.json)`,
                 );
             }
         }
     }
 
     for (const [key, file] of usedKeys(root)) {
-        if (!referencePlaceholders.has(key)) {
+        if (!(key in reference)) {
             problems.push(
                 `${file}: uses "${key}" which is not defined in ${REFERENCE_LOCALE}.json`,
             );
@@ -187,6 +252,25 @@ export function validate(root) {
     }
 
     return problems;
+}
+
+/**
+ * @param {Record<string, string>} reference
+ * @param {string} key
+ * @returns {Set<string> | undefined}
+ */
+function analyzeReference(reference, key) {
+    const message = reference[key];
+
+    return message === undefined ? undefined : analyze(message, REFERENCE_LOCALE).args;
+}
+
+/**
+ * @param {Set<string>} a
+ * @param {Set<string>} b
+ */
+function sameSet(a, b) {
+    return a.size === b.size && [...a].every((item) => b.has(item));
 }
 
 const ACCENTS = /** @type {Record<string, string>} */ ({
@@ -245,20 +329,38 @@ const ACCENTS = /** @type {Record<string, string>} */ ({
 });
 
 /**
- * Pseudo-localizes a message: accented letters, roughly 40% longer, bracketed so truncation is
- * visible. Placeholders are preserved. With `rtl`, the text is forced right-to-left.
+ * Pseudo-localizes an ICU message: accented letters in the literal text, roughly 40% longer,
+ * bracketed so truncation is visible. Arguments, plural and select structure are preserved.
+ * With `rtl`, the text is forced right-to-left.
  *
  * @param {string} message
  * @param {{ rtl?: boolean }} [options]
  */
 export function pseudoLocalize(message, options = {}) {
-    const converted = message
-        .split(/(\{\w+\})/)
-        .map((part) =>
-            /^\{\w+\}$/.test(part) ? part : [...part].map((char) => ACCENTS[char] ?? char).join(''),
-        )
-        .join('');
-    const padding = '~'.repeat(Math.ceil(message.length * 0.4));
+    const ast = parse(message, { captureLocation: true });
+    /** @type {{ start: number, end: number }[]} */
+    const literals = [];
+    let literalLength = 0;
+
+    walk(ast, (element) => {
+        if (element.type === TYPE.literal && element.location) {
+            literals.push({
+                start: element.location.start.offset,
+                end: element.location.end.offset,
+            });
+            literalLength += element.value.length;
+        }
+    });
+
+    let converted = message;
+
+    for (const { start, end } of literals.sort((a, b) => b.start - a.start)) {
+        const text = [...converted.slice(start, end)].map((char) => ACCENTS[char] ?? char).join('');
+
+        converted = converted.slice(0, start) + text + converted.slice(end);
+    }
+
+    const padding = '~'.repeat(Math.ceil(literalLength * 0.4));
     const text = `[${converted}${padding}]`;
 
     return options.rtl === true ? `‮${text}‬` : text;

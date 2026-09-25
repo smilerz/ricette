@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (becomes Accepted when the maintainer merges the PR that introduces it)
+Accepted. Decided by the maintainer on 2026-09-25 after a review of the alternatives (Apache with PHP, nginx with php-fpm, Laravel Octane). The reasons: it keeps the single-application-container operator experience simple, and it is cheaply reversible.
 
 ## Context
 
@@ -24,8 +24,14 @@ The image is built for `linux/amd64` and `linux/arm64` (ADR-0017). Configuration
 
 FrankenPHP is the smallest way to serve PHP from a single self-contained process with a maintained multi-architecture image, which is what ADR-0005 requires. It adds no Composer dependency to the application.
 
+## Constraint
+
+Ricette must not adopt FrankenPHP-specific application or runtime capabilities that materially increase the cost of switching runtimes without a new, human-approved architectural decision. Plain Laravel portability is intentional: the application should run unchanged on Apache or nginx with php-fpm, and only the `Dockerfile` and web-server configuration should be FrankenPHP-specific.
+
 ## Consequences
 
+- Switching runtimes is estimated at about half a day of `Dockerfile` and configuration work, with no data migration.
+- The FrankenPHP binary bundles Go libraries that only its maintainers can patch; the vulnerability scan has already needed three accepted advisories for it (`.grype.yaml`). Watch this, and replace the runtime if it becomes a burden.
 - The application depends on the FrankenPHP project for the serving layer; the image tag is pinned and updated through Dependabot's Docker ecosystem.
 - Running the queue worker and scheduler alongside the web process is not settled by this ADR. It is part of the deployment/boot work tracked separately (migration-on-boot and the entrypoint).
 - Reverse-proxy header trust is configured in the application, not in this ADR.

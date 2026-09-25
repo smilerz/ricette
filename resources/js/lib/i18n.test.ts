@@ -4,9 +4,9 @@ import { createTranslator } from './i18n';
 const messages = {
     greeting: 'Hello',
     'greeting.named': 'Hello, {name}',
-    'items.one': '{count} item',
-    'items.other': '{count} items',
-    'ratings.other': '{count} ratings',
+    items: '{count, plural, one {# item} other {# items}}',
+    role: '{kind, select, admin {Administrator} other {Member}}',
+    broken: 'Hello {name',
 };
 
 describe('createTranslator', () => {
@@ -16,40 +16,54 @@ describe('createTranslator', () => {
         expect(t('greeting')).toBe('Hello');
     });
 
-    it('interpolates named parameters', () => {
+    it('interpolates named arguments', () => {
         expect(t('greeting.named', { name: 'Ana' })).toBe('Hello, Ana');
     });
 
-    it('leaves an unsupplied placeholder visible', () => {
-        expect(t('greeting.named')).toBe('Hello, {name}');
-        expect(t('greeting.named', { other: 'x' })).toBe('Hello, {name}');
+    it('renders the key when an argument is not supplied', () => {
+        expect(t('greeting.named')).toBe('greeting.named');
+        expect(t('greeting.named', { other: 'x' })).toBe('greeting.named');
     });
 
     it('renders a missing key as the key so the gap is visible', () => {
         expect(t('does.not.exist')).toBe('does.not.exist');
     });
 
+    it('renders the key for a message that does not parse', () => {
+        expect(t('broken', { name: 'Ana' })).toBe('broken');
+        expect(t('broken', { name: 'Ana' })).toBe('broken');
+    });
+
     it('selects a plural form by CLDR category', () => {
         expect(t('items', { count: 1 })).toBe('1 item');
         expect(t('items', { count: 2 })).toBe('2 items');
+        expect(t('items', { count: 1000 })).toBe('1,000 items');
     });
 
-    it('falls back to the other form when the category has no message', () => {
-        expect(t('ratings', { count: 1 })).toBe('1 ratings');
+    it('supports select messages', () => {
+        expect(t('role', { kind: 'admin' })).toBe('Administrator');
+        expect(t('role', { kind: 'anything' })).toBe('Member');
     });
 
-    it('uses the locale plural rules', () => {
+    it('uses the locale plural rules beyond one and other', () => {
         const arabic = createTranslator(
-            { 'items.few': 'few:{count}', 'items.other': 'other:{count}' },
+            {
+                items: '{count, plural, zero {none} one {one} two {two} few {few} many {many} other {other}}',
+            },
             'ar',
         );
 
-        expect(arabic.t('items', { count: 3 })).toBe('few:3');
-        expect(arabic.t('items', { count: 100 })).toBe('other:100');
+        expect(arabic.t('items', { count: 0 })).toBe('none');
+        expect(arabic.t('items', { count: 2 })).toBe('two');
+        expect(arabic.t('items', { count: 3 })).toBe('few');
+        expect(arabic.t('items', { count: 11 })).toBe('many');
+        expect(arabic.t('items', { count: 100 })).toBe('other');
     });
 
-    it('falls back to the bare key when no plural form exists', () => {
-        expect(t('greeting', { count: 5 })).toBe('Hello');
+    it('formats numbers inside messages for the locale', () => {
+        const german = createTranslator({ total: '{value, number}' }, 'de');
+
+        expect(german.t('total', { value: 1234.5 })).toBe('1.234,5');
     });
 });
 
