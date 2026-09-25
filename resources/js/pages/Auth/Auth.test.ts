@@ -16,6 +16,7 @@ const translations = {
     'auth.login.submit': 'Sign in',
     'auth.register.submit': 'Create account',
     'auth.need_account': 'New here?',
+    'auth.registration_closed': 'This server is not accepting new accounts.',
     'auth.have_account': 'Already registered?',
 };
 
@@ -54,6 +55,7 @@ describe('Login', () => {
         render(Login);
 
         expect(screen.queryByRole('link', { name: 'New here?' })).not.toBeInTheDocument();
+        expect(screen.getByText('This server is not accepting new accounts.')).toBeInTheDocument();
     });
 });
 

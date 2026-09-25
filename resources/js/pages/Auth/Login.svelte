@@ -36,5 +36,7 @@
 
     {#if page.props.registrationOpen}
         <p><Link href="/register">{i18n.t('auth.need_account')}</Link></p>
+    {:else}
+        <p>{i18n.t('auth.registration_closed')}</p>
     {/if}
 </main>
