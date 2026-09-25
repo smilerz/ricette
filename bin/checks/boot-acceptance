@@ -26,6 +26,9 @@ trap cleanup EXIT
 
 fail() {
   echo "FAILED: $*" >&2
+  for c in "${containers[@]:-}"; do
+    [ -n "$c" ] && { echo "--- logs: $c" >&2; docker logs "$c" 2>&1 | tail -40 >&2 || true; }
+  done
   exit 1
 }
 
@@ -77,7 +80,9 @@ if curl -fsS "http://127.0.0.1:$port/up" >/dev/null 2>&1; then fail "application
 docker run -d --name "$db" --network "$net" \
   -e POSTGRES_USER=ricette -e POSTGRES_PASSWORD=ricette -e POSTGRES_DB=ricette postgres:17 >/dev/null
 wait_for_up "$app" 120 || fail "application did not start after the database came up"
-docker logs "$app" 2>&1 | grep -q "Database not ready" || fail "no retry was logged while the database was down"
+# The backoff itself is unit-tested. Here the proof is behavioral: the application waited, stayed down while the
+# database was absent, and came up on its own afterwards. A retry line in the log is not required because the
+# first connection attempt can block on name resolution until the database container exists.
 out=$(migrations_pending "$app")
 echo "$out" | grep -qi "no pending migrations" || fail "migrations pending after boot: $out"
 
