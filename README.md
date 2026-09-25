@@ -14,23 +14,31 @@
 
 Ricette is a self-hostable recipe and meal-planning app. The name is a working title.
 
-Today you can register, sign in and create a household. Recipes, meal plans and shopping lists come next. There is no release yet, so nothing is published to a registry.
+Today you can register, sign in and create a household. Recipes, meal plans and shopping lists come next. There is no release yet.
 
-## Run it
+## Self-hosting
 
-Open the repository in the [dev container](.devcontainer/devcontainer.json): VS Code with the Dev Containers extension ("Reopen in Container"), or GitHub Codespaces. The first start installs everything, including PHP, Node, the project dependencies and the test browser. Then:
+You need Docker. Nothing else is installed on your machine.
 
 ```bash
-./bin/dev --seed
+git clone https://github.com/smilerz/ricette.git
+cd ricette
+echo "APP_KEY=$(docker compose run --rm --no-deps ricette php artisan key:generate --show)" > .env
+docker compose up -d
 ```
 
-The app is at <http://localhost:8000>. Log in as `demo@example.com` with `correct horse battery staple`. Saving a Svelte, CSS or PHP file updates the page without a rebuild.
+Open <http://localhost:8080> and register an account. The database is created and
+upgraded automatically, and your data lives in the `ricette-data` volume. Keep `.env`: it holds the key that
+protects your sessions. Put the app behind a reverse proxy that handles HTTPS before exposing it to the internet.
+[Deployment](docs/operations/deployment.md) covers PostgreSQL, proxies and upgrades.
 
-Without a container, `./bin/setup` tells you which tools your machine is missing. Details, including debugging, are in [docs/development/setup.md](docs/development/setup.md).
+There is no published image yet, so `docker compose` builds it from this repository.
 
-## Checks
+## Developing
 
-`./bin/verify` runs the same checks CI does. [docs/development/commands.md](docs/development/commands.md) lists them.
+Open the repository in the dev container (VS Code "Reopen in Container", or GitHub Codespaces); it installs
+everything. Then run `./bin/dev --seed` for the app with hot reload at <http://localhost:8000>. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and [docs/development/setup.md](docs/development/setup.md).
 
 ## Stack
 

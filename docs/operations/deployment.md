@@ -3,6 +3,11 @@
 The supported artifact is the container image (ADR-0005, ADR-0017, ADR-0023). It serves HTTP on port 8080 as an
 unprivileged user and keeps its state under `/data`.
 
+## Docker Compose
+
+`compose.yaml` in the repository root builds the image and runs it with a data volume. It needs `APP_KEY` in a
+`.env` file; the README shows a one-line way to create it with the image itself, so no PHP is needed on the host.
+
 ## Minimal run
 
 ```bash
@@ -12,7 +17,7 @@ docker run -d --name ricette -p 8080:8080 \
   ricette
 ```
 
-Generate an application key once with `php artisan key:generate --show` and keep it: changing it invalidates
+Generate an application key once with `docker run --rm ricette php artisan key:generate --show` and keep it: changing it invalidates
 sessions and encrypted data. Put the container behind a reverse proxy that terminates TLS.
 
 ## What happens at start
