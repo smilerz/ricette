@@ -2,26 +2,33 @@
 
 The application is Laravel 13 with Svelte 5 and Inertia 3 (ADR-0002, ADR-0003).
 
-## Requirements
-
-- PHP 8.4 with the `pdo_sqlite`, `pdo_pgsql`, `intl`, `zip` and `mbstring` extensions, and Composer 2
-- Node 25 (what CI and the container image use; 22 or newer works) and pnpm (ADR-0020; the exact version is pinned in `package.json`)
-- `uvx` or `pipx`, `jq`, and `npx` for the repository-wide checks
-- A PHP coverage driver (`pcov` or `xdebug`) to run the coverage and mutation checks locally
-
-## First run
+## Quick start
 
 ```bash
-composer install
-pnpm install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
-pnpm run build
-php artisan serve
+./bin/setup        # checks your tools, says exactly what is missing, then installs the project's dependencies
+./bin/dev --seed   # runs the app with hot reload and a demo account at http://localhost:8000
 ```
 
-Use `pnpm run dev` for hot module replacement while developing.
+`./bin/setup --check` only checks and changes nothing. `./bin/setup` never installs system software for you; it
+tells you what to install and how.
+
+## What you need
+
+| Tool | Version | Notes |
+| --- | --- | --- |
+| PHP | 8.3 or newer (CI and the image use 8.4) | Extensions: `pdo_sqlite`, `intl`, `mbstring`, `zip`, `sodium`, `xml`, `curl`. Add `pdo_pgsql` to run the tests against PostgreSQL. |
+| Composer | 2 | |
+| Node | 22 or newer (CI and the image use 25) | |
+| pnpm | 12.6 (pinned in `package.json`, ADR-0020) | `npm install --global pnpm@12.6.0` |
+| `jq`, `npx`, and `uvx` or `pipx` | any | Used by the repository-wide checks. |
+| Git identity | | `user.name` and `user.email` are used by the DCO sign-off (`-s`) on every commit. |
+
+Optional: **Xdebug** (PHP debugging), **Playwright browsers** (`pnpm exec playwright install --with-deps chromium`,
+for end-to-end tests), **Docker** (only for `./bin/verify container-acceptance` and building the image), and a PHP
+coverage driver (`pcov` or Xdebug) for the coverage and mutation checks.
+
+The easiest way to get PHP and Composer on any platform is <https://php.new>. On Windows, develop inside WSL and
+follow the Linux instructions there.
 
 ## Live review and debugging in VS Code
 
@@ -32,13 +39,41 @@ database on first run and applies migrations every time. Add `--seed` to create 
 (`demo@example.com`, password `correct horse battery staple`) with a household. The demo seeder refuses to run in
 production because those credentials are public.
 
-In VS Code (or VS Code attached to WSL with the Remote - WSL extension), accept the recommended extensions and pick
-**Ricette: app + PHP debugger + browser** in Run and Debug. It starts `./bin/dev`, listens for Xdebug on port 9003
-and opens the app in Edge; change `msedge` to `chrome` in `.vscode/launch.json` if you prefer. Breakpoints in PHP
-and in the Svelte source both work.
+Open the repository in VS Code (on Windows, use the **WSL** extension and open the folder inside WSL), accept the
+recommended extensions, then in Run and Debug pick **Ricette: app + PHP debugger + browser**. It starts `./bin/dev`,
+listens for Xdebug on port 9003 and opens the app in Edge; change `msedge` to `chrome` in `.vscode/launch.json` if you
+prefer. Breakpoints in PHP and in the Svelte source both work.
 
-PHP debugging needs the Xdebug extension for the PHP you run. Without it `./bin/dev` still works and says the debugger
-is off. With Xdebug installed it is switched on automatically (`XDEBUG_MODE=debug`, client port 9003).
+### Turning on the PHP debugger
+
+PHP debugging needs the Xdebug extension for the PHP you run. `./bin/dev` switches it on automatically when it is
+installed (`XDEBUG_MODE=debug`, client port 9003) and says so; without it everything else still works.
+
+1. Install it: Debian, Ubuntu and WSL `sudo apt install php8.4-xdebug`; macOS `pecl install xdebug`.
+2. Check it: `php -m | grep -i xdebug`, or run `./bin/setup --check`.
+3. In VS Code, start **PHP: Listen for Xdebug** (or the compound launch), set a breakpoint, and load a page.
+
+Under WSL, run VS Code through the WSL extension so the debugger, PHP and the files are all inside WSL; then
+`localhost` in your Windows browser reaches the servers automatically.
+
+## Everything in VS Code
+
+Run a task from **Terminal > Run Task** (or the Command Palette, "Tasks: Run Task"). Shared settings, tasks and
+launch configurations live in `.vscode/`.
+
+| Task or launch | What it does |
+| --- | --- |
+| Ricette: set up this machine | `./bin/setup` |
+| Ricette: start dev servers (with demo data) | `./bin/dev` (`--seed`) |
+| Ricette: test PHP / frontend / end to end | Pest, Vitest, Playwright |
+| Ricette: format everything | `./bin/format` |
+| Ricette: check before pushing | the fast subset of `./bin/verify` |
+| Ricette: run every CI check | `./bin/verify` |
+| Launch: Pest: debug current test file | Debug the open test with Xdebug |
+| Launch: Vitest: debug current test file | Debug the open frontend test |
+
+PHP files are formatted by Laravel Pint through `./bin/format` (not on save), so run it, or the check task, before you
+push. TypeScript, Svelte and CSS are formatted with Prettier on save.
 
 ## Everything CI runs
 

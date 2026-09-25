@@ -159,6 +159,7 @@ expect 1 "entrypoint: no SQLite file for PostgreSQL" test -e "$e/data/db.sqlite"
 
 # --- bin/dev
 expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"
+expect 0 "bin/setup: is valid shell" bash -n "$here/bin/setup"
 
 echo "selftest: $pass passed, $fail failed"
 [ $fail -eq 0 ]

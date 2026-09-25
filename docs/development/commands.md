@@ -1,5 +1,8 @@
 # Canonical developer commands
 
+Other commands: `./bin/setup` checks your tools and installs dependencies, `./bin/dev` runs the app with hot reload
+and PHP debugging (`--seed` adds a demo account), and `./bin/format` applies formatting.
+
 `./bin/verify` is the single verification entry point. CI invokes the same
 targets, so a green local run means the same checks pass in CI. New checks are
 added to this script rather than to a parallel command.
