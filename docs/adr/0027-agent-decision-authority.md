@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (governance change; requires explicit maintainer approval)
+Accepted. Decided by the maintainer on 2026-09-25.
 
 ## Context
 
