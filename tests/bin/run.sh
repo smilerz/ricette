@@ -82,5 +82,51 @@ expect 1 "cp: user-facing change without translation keys fails" cp_check "$r"
 r=$(new_repo cp-ui-lang); add_commit "$r" yes resources/js/App.svelte tests/app.test.js docs/ui.md lang/en/app.json
 expect 0 "cp: user-facing change with translation keys passes" cp_check "$r"
 
+
+# --- docker/entrypoint.sh
+setup_entrypoint() { # setup_entrypoint <name>: fake php and server on PATH, echoes the sandbox dir
+  local d=$tmp/$1
+  mkdir -p "$d/bin" "$d/app"
+  cat >"$d/bin/php" <<'PHP'
+#!/bin/sh
+echo "php $* [user=${DB_USERNAME-unset} pass=${DB_PASSWORD-unset}]" >>"$ENTRYPOINT_LOG"
+case "$*" in *"${FAKE_PHP_FAIL_ON:-__none__}"*) exit 1 ;; esac
+PHP
+  cat >"$d/bin/server" <<'SERVER'
+#!/bin/sh
+echo "server $*" >>"$ENTRYPOINT_LOG"
+SERVER
+  chmod +x "$d/bin/php" "$d/bin/server"
+  echo "$d"
+}
+
+run_entrypoint() { # run_entrypoint <sandbox> [env assignments...]; log in <sandbox>/log
+  local d=$1
+  shift
+  : >"$d/log"
+  env -i PATH="$d/bin:/usr/bin:/bin" APP_DIR="$d/app" ENTRYPOINT_LOG="$d/log" DB_CONNECTION=sqlite DB_DATABASE="$d/data/db.sqlite" "$@" \
+    "$here/docker/entrypoint.sh" server --flag
+}
+
+e=$(setup_entrypoint ep-default)
+expect 0 "entrypoint: default boot succeeds" run_entrypoint "$e"
+expect 0 "entrypoint: creates the SQLite file" test -f "$e/data/db.sqlite"
+expect 0 "entrypoint: waits for the database before migrating" \
+  bash -c "grep -n 'php artisan' '$e/log' | head -2 | tr '\n' ' ' | grep -q 'app:wait-for-database.*migrate --force'"
+expect 0 "entrypoint: starts the server with its arguments after migrating" \
+  bash -c "tail -1 '$e/log' | grep -q '^server --flag'"
+
+e=$(setup_entrypoint ep-migrate-fails)
+expect 1 "entrypoint: a failed migration stops the boot" run_entrypoint "$e" FAKE_PHP_FAIL_ON="migrate --force"
+expect 1 "entrypoint: the server never starts after a failed migration" bash -c "grep -q '^server' '$e/log'"
+
+e=$(setup_entrypoint ep-db-unreachable)
+expect 1 "entrypoint: an unreachable database stops the boot" run_entrypoint "$e" FAKE_PHP_FAIL_ON="app:wait-for-database"
+expect 1 "entrypoint: nothing is migrated when the database is unreachable" bash -c "grep -q 'migrate --force' '$e/log'"
+
+e=$(setup_entrypoint ep-postgres)
+expect 0 "entrypoint: PostgreSQL boot does not create a SQLite file" run_entrypoint "$e" DB_CONNECTION=pgsql
+expect 1 "entrypoint: no SQLite file for PostgreSQL" test -e "$e/data/db.sqlite"
+
 echo "selftest: $pass passed, $fail failed"
 [ $fail -eq 0 ]

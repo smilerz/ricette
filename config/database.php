@@ -32,6 +32,18 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Boot-time Database Wait
+    |--------------------------------------------------------------------------
+    |
+    | Seconds the container entrypoint waits, retrying with backoff, for the
+    | database to accept connections before giving up (`app:wait-for-database`).
+    |
+    */
+
+    'wait_timeout' => (int) env('DB_WAIT_TIMEOUT', 60),
+
     'connections' => [
 
         'sqlite' => [
