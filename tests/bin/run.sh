@@ -119,6 +119,8 @@ setup_entrypoint() { # setup_entrypoint <name>: fake php and server on PATH, ech
 #!/bin/sh
 echo "php $* [user=${DB_USERNAME-unset} pass=${DB_PASSWORD-unset}]" >>"$ENTRYPOINT_LOG"
 case "$*" in *"${FAKE_PHP_FAIL_ON:-__none__}"*) exit 1 ;; esac
+case "$*" in *key:generate*) echo "base64:generated-key-for-tests" ;; esac
+echo "key=${APP_KEY-unset}" >>"$ENTRYPOINT_LOG"
 PHP
   cat >"$d/bin/server" <<'SERVER'
 #!/bin/sh
@@ -132,7 +134,7 @@ run_entrypoint() { # run_entrypoint <sandbox> [env assignments...]; log in <sand
   local d=$1
   shift
   : >"$d/log"
-  env -i PATH="$d/bin:/usr/bin:/bin" APP_DIR="$d/app" ENTRYPOINT_LOG="$d/log" DB_CONNECTION=sqlite DB_DATABASE="$d/data/db.sqlite" "$@" \
+  env -i PATH="$d/bin:/usr/bin:/bin" APP_DIR="$d/app" ENTRYPOINT_LOG="$d/log" DB_CONNECTION=sqlite DB_DATABASE="$d/data/db.sqlite" APP_KEY=base64:default "$@" \
     "$here/docker/entrypoint.sh" server --flag
 }
 
@@ -143,6 +145,21 @@ expect 0 "entrypoint: waits for the database before migrating" \
   bash -c "grep -n 'php artisan' '$e/log' | head -2 | tr '\n' ' ' | grep -q 'app:wait-for-database.*migrate --force'"
 expect 0 "entrypoint: starts the server with its arguments after migrating" \
   bash -c "tail -1 '$e/log' | grep -q '^server --flag'"
+
+e=$(setup_entrypoint ep-key)
+expect 0 "entrypoint: creates an application key when none is supplied" run_entrypoint "$e" APP_KEY_FILE="$e/data/app.key" APP_KEY=
+expect 0 "entrypoint: stores the generated key in the data volume" grep -q 'base64:generated-key-for-tests' "$e/data/app.key"
+expect 0 "entrypoint: the generated key file is private to its owner" test "$(stat -c %a "$e/data/app.key")" = 600
+expect 0 "entrypoint: the application runs with the generated key" grep -q '^key=base64:generated-key-for-tests' "$e/log"
+echo "base64:kept-key" >"$e/data/app.key"
+expect 0 "entrypoint: a restart reuses the stored key" run_entrypoint "$e" APP_KEY_FILE="$e/data/app.key" APP_KEY=
+expect 1 "entrypoint: a restart does not generate a second key" grep -q key:generate "$e/log"
+expect 0 "entrypoint: the stored key is what the application uses" grep -q '^key=base64:kept-key' "$e/log"
+
+e=$(setup_entrypoint ep-key-supplied)
+expect 0 "entrypoint: a supplied key is used" run_entrypoint "$e" APP_KEY_FILE="$e/data/app.key" APP_KEY=base64:from-operator
+expect 1 "entrypoint: a supplied key is not replaced or stored" test -e "$e/data/app.key"
+expect 0 "entrypoint: the supplied key reaches the application" grep -q '^key=base64:from-operator' "$e/log"
 
 e=$(setup_entrypoint ep-migrate-fails)
 expect 1 "entrypoint: a failed migration stops the boot" run_entrypoint "$e" FAKE_PHP_FAIL_ON="migrate --force"

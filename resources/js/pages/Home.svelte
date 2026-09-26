@@ -30,8 +30,10 @@
         </Form>
     {:else}
         <p>
-            <Link href="/login">{i18n.t('nav.login')}</Link> ·
-            <Link href="/register">{i18n.t('nav.register')}</Link>
+            <Link href="/login">{i18n.t('nav.login')}</Link>
+            {#if page.props.registrationOpen}
+                · <Link href="/register">{i18n.t('nav.register')}</Link>
+            {/if}
         </p>
     {/if}
 </main>

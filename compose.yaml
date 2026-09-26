@@ -1,5 +1,5 @@
 # Runs Ricette from this repository with a SQLite database kept in a volume.
-# Put APP_KEY in a .env file next to this one (see docs/operations/deployment.md).
+# The application key is created on first start and kept in the data volume; see docs/operations/deployment.md.
 services:
   ricette:
     build: .
@@ -7,7 +7,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      APP_KEY: ${APP_KEY:?Set APP_KEY in .env; see docs/operations/deployment.md}
+      # Uncomment to close registration once your own account exists.
+      # REGISTRATION_ENABLED: "false"
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - ricette-data:/data
     restart: unless-stopped

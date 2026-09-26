@@ -5,20 +5,39 @@ unprivileged user and keeps its state under `/data`.
 
 ## Docker Compose
 
-`compose.yaml` in the repository root builds the image and runs it with a data volume. It needs `APP_KEY` in a
-`.env` file; the README shows a one-line way to create it with the image itself, so no PHP is needed on the host.
+`compose.yaml` in the repository root builds the image and runs it with a data volume:
+
+```bash
+docker compose up -d
+```
 
 ## Minimal run
 
 ```bash
-docker run -d --name ricette -p 8080:8080 \
-  -e APP_KEY="base64:..." \
-  -v ricette-data:/data \
-  ricette
+docker run -d --name ricette -p 8080:8080 -v ricette-data:/data ricette
 ```
 
-Generate an application key once with `docker run --rm ricette php artisan key:generate --show` and keep it: changing it invalidates
-sessions and encrypted data. Put the container behind a reverse proxy that terminates TLS.
+Put the container behind a reverse proxy that terminates TLS.
+
+## The application key
+
+The key protects sessions and signed links (ADR-0028). On first start the container creates one and keeps it in
+`/data/app.key`, so it survives restarts and upgrades. **The data volume is therefore the secret:** anyone who can
+read it or a backup of it can read the key and the database. Restrict access to it and store backups accordingly.
+
+To manage the key yourself, set `APP_KEY` (for example `docker run --rm ricette php artisan key:generate --show`
+prints one). A supplied key is used as is and nothing is written to the volume. Set it explicitly whenever more
+than one container serves the same data, so they all agree.
+
+Changing the key logs everyone out and makes anything encrypted with the old key unreadable. To rotate without
+that, put the old key in `APP_PREVIOUS_KEYS` (comma-separated) while the new one is in `APP_KEY`, and remove the
+old key once sessions have turned over.
+
+## Closing registration
+
+Anyone who can reach the server can create an account. To stop that, set `REGISTRATION_ENABLED=false`. The
+`/register` page and the sign-up links disappear and sign-in is unaffected. Only a clear true value leaves it
+open; an empty or misspelled value closes it. Create your own account first, then close registration.
 
 ## What happens at start
 

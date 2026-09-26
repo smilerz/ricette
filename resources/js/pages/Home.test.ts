@@ -22,6 +22,7 @@ function withPage(
     messages: Record<string, string>,
     user: { id: number; name: string; email: string } | null = null,
     household: { id: number; name: string; role: 'owner' | 'member' } | null = null,
+    registrationOpen = true,
 ): void {
     Object.assign(page, {
         component: 'Home',
@@ -31,6 +32,7 @@ function withPage(
             translations: messages,
             auth: { user },
             household,
+            registrationOpen,
         },
         url: '/',
         version: null,
@@ -60,6 +62,14 @@ describe('Home', () => {
         expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Create an account' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
+    });
+
+    it('offers only sign-in to a guest when registration is closed', () => {
+        withPage('en', translations, null, null, false);
+        render(Home);
+
+        expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Create an account' })).not.toBeInTheDocument();
     });
 
     it('greets a signed-in user and offers sign-out', () => {

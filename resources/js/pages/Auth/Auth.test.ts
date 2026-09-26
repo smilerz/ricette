@@ -16,10 +16,11 @@ const translations = {
     'auth.login.submit': 'Sign in',
     'auth.register.submit': 'Create account',
     'auth.need_account': 'New here?',
+    'auth.registration_closed': 'This server is not accepting new accounts.',
     'auth.have_account': 'Already registered?',
 };
 
-function withPage(): void {
+function withPage(registrationOpen = true): void {
     Object.assign(page, {
         component: 'Auth',
         props: {
@@ -27,6 +28,7 @@ function withPage(): void {
             fallbackLocale: 'en',
             translations,
             auth: { user: null },
+            registrationOpen,
         },
         url: '/login',
         version: null,
@@ -46,6 +48,14 @@ describe('Login', () => {
         );
         expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
         expect(screen.getByRole('link', { name: 'New here?' })).toBeInTheDocument();
+    });
+
+    it('offers no sign-up link when registration is closed', () => {
+        withPage(false);
+        render(Login);
+
+        expect(screen.queryByRole('link', { name: 'New here?' })).not.toBeInTheDocument();
+        expect(screen.getByText('This server is not accepting new accounts.')).toBeInTheDocument();
     });
 });
 

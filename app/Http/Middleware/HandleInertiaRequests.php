@@ -9,6 +9,7 @@ use App\Support\ActiveHousehold;
 use App\Support\Translations;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Laravel\Fortify\Features;
 
 final class HandleInertiaRequests extends Middleware
 {
@@ -39,6 +40,7 @@ final class HandleInertiaRequests extends Middleware
                 'name' => $membership->household->name,
                 'role' => $membership->role->value,
             ],
+            'registrationOpen' => Features::enabled(Features::registration()),
             'locale' => $locale,
             'fallbackLocale' => $fallback,
             'translations' => Translations::for($locale, $fallback),
