@@ -45,4 +45,7 @@ Images are published to `ghcr.io/smilerz/ricette` (ADR-0029, ADR-0017).
 - "Can change the image" means "is inside the Docker build context": the list is `.dockerignore`.
 - `bin/release-plan` makes these decisions and `bin/scan-gate` decides whether the scan lets an image ship. Both have
   self-tests in `tests/bin/run.sh`.
-- Accepting a vulnerability you cannot fix needs an entry in `.grype.yaml` with a reason and an expiry on the same line.
+- The scan asks whether the new image is worse than the published one. A new High or Critical finding with a fix blocks
+  the release; a finding the published image already has does not. Those are listed in the release notes and tracked
+  in issues labeled `vulnerability`, which `bin/track-findings` opens and closes on its own. `.grype.yaml` is only for
+  false positives.

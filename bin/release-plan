@@ -17,6 +17,7 @@
 #   REBUILD_REASON     (release) non-empty when the base image changed: ship the same commit again as a patch release
 #   BASE_IMAGE_NOTE    (notes) one line about a changed base image and the fixes it brings, written by the workflow
 #   IMAGE_NAME, IMAGE_DIGEST   (notes) print the exact-image pin line
+#   KNOWN_FINDINGS_FILE (notes) JSON list of vulnerabilities carried forward from the previous release (from bin/scan-gate)
 #   MAIN_REF           (tag) the branch a tagged commit must be reachable from (default: origin/main)
 #
 # Rules (docs/development/versioning.md, ADR-0029):
@@ -333,6 +334,11 @@ notes)
   [ -z "${BASE_IMAGE_NOTE:-}" ] || upgrading+="- $BASE_IMAGE_NOTE"$'\n'
   [ "$bot_count" -eq 0 ] || upgrading+="- $bot_count dependency update(s) are included; see the pull requests labeled dependencies."$'\n'
   printf '## Upgrading\n\n%s\n' "${upgrading:-No action needed.$'\n'}"
+  if [ -n "${KNOWN_FINDINGS_FILE:-}" ] && [ "$(jq length "$KNOWN_FINDINGS_FILE")" -gt 0 ]; then
+    printf '## Known vulnerabilities\n\nThese findings have a fix available, are also in the previous release, and are not new. They are tracked in issues labeled `vulnerability` and will be fixed when the base image or dependency is updated.\n\n'
+    jq -r '.[] | "- \(.severity): \(.id) in \(.package) \(.version)"' "$KNOWN_FINDINGS_FILE"
+    printf '\n'
+  fi
   if [ -n "${IMAGE_NAME:-}" ] && [ -n "${IMAGE_DIGEST:-}" ]; then
     printf '## This exact image\n\n```\ndocker pull %s@%s\n```\n' "$IMAGE_NAME" "$IMAGE_DIGEST"
   fi

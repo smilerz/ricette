@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Keeps one GitHub issue per known High or Critical vulnerability in the published image, without anyone doing it by hand.
+#
+#   bin/track-findings FINDINGS.json
+#
+# FINDINGS.json is the list bin/scan-gate writes (FINDINGS_OUT): every High or Critical finding, with a fix available, in
+# the image that has just been published. For each finding an issue titled "Vulnerability: <id> in <package>" is opened
+# if there is none and refreshed if there is. An open issue whose finding is no longer in the list is closed with a
+# comment. The release workflow calls this after a successful publish, so the issues describe what is actually shipped.
+# GH can be set to another command for tests.
+set -euo pipefail
+
+file=${1:?usage: bin/track-findings FINDINGS.json}
+gh=${GH:-gh}
+prefix="Vulnerability: "
+
+$gh label create vulnerability --description "A known vulnerability in the published image (managed by bin/track-findings)" --color B60205 >/dev/null 2>&1 || true
+
+open=$($gh issue list --label vulnerability --state open --limit 500 --json number,title,body)
+
+# Open or refresh one issue per current finding.
+while IFS=$'\t' read -r id package version severity; do
+  [ -n "$id" ] || continue
+  title="$prefix$id in $package"
+  body="This ${severity} vulnerability has a fix available but is still present in the published container image (\`$package\` $version).
+
+It is not blocking releases, because the new image is no worse than the published one. It will be fixed when the base image or the dependency is updated. This issue is opened, updated and closed automatically."
+  number=$(jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty' <<<"$open")
+  if [ -z "$number" ]; then
+    $gh issue create --title "$title" --label vulnerability --body "$body" >/dev/null
+    echo "opened: $title"
+  else
+    current=$(jq -r --arg t "$title" '[.[] | select(.title == $t)][0].body' <<<"$open")
+    if [ "$current" != "$body" ]; then
+      $gh issue edit "$number" --body "$body" >/dev/null
+      echo "updated: $title"
+    fi
+  fi
+done < <(jq -r '.[] | [.id, .package, .version, .severity] | @tsv' "$file")
+
+# Close what is gone.
+wanted=$(jq -r --arg p "$prefix" '.[] | $p + .id + " in " + .package' "$file")
+while IFS=$'\t' read -r number title; do
+  [ -n "$number" ] || continue
+  case "$title" in "$prefix"*) ;; *) continue ;; esac
+  if ! grep -qxF "$title" <<<"$wanted"; then
+    $gh issue close "$number" --comment "No longer found in the published image. Closed automatically." >/dev/null
+    echo "closed: $title"
+  fi
+done < <(jq -r '.[] | [.number, .title] | @tsv' <<<"$open")

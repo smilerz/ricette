@@ -302,6 +302,9 @@ expect 0 "release-plan notes: migrations produce a back-up warning" bash -c "cd 
 expect 0 "release-plan notes: new settings are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'NEW_SETTING'"
 expect 0 "release-plan notes: removed settings are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'OLD_SETTING'"
 expect 0 "release-plan notes: dependency updates are counted, not listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q '1 dependency update'"
+printf '[{"id":"CVE-9","package":"zlib","version":"1.2","severity":"Critical"}]' >"$tmp/known.json"
+expect 0 "release-plan notes: known vulnerabilities carried forward are listed" bash -c "cd '$r' && KNOWN_FINDINGS_FILE='$tmp/known.json' '$here/bin/release-plan' notes | grep -q 'Critical: CVE-9 in zlib 1.2'"
+expect 1 "release-plan notes: no known-vulnerabilities section when there are none" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'Known vulnerabilities'"
 expect 0 "release-plan notes: the exact image pin is printed when the workflow supplies it" bash -c "cd '$r' && IMAGE_NAME=ghcr.io/x/y IMAGE_DIGEST=sha256:abc '$here/bin/release-plan' notes | grep -qF 'docker pull ghcr.io/x/y@sha256:abc'"
 expect 0 "release-plan notes: a base-image note appears under Upgrading" bash -c "cd '$r' && BASE_IMAGE_NOTE='The base image was updated.' '$here/bin/release-plan' notes | grep -q 'The base image was updated'"
 
@@ -493,16 +496,41 @@ expect 0 "scan-gate: a High the published image already has does not block" gate
 expect 0 "scan-gate: the same CVE in a bumped package version is not new" gate "$sg/high-bumped.json" "$sg/high.json"
 expect 1 "scan-gate: the same CVE in a different package is new" gate "$sg/high-other-pkg.json" "$sg/high.json"
 expect 1 "scan-gate: a new High compared with a clean published image blocks" gate "$sg/high.json" "$sg/clean.json"
-expect 1 "scan-gate: a Critical blocks even when the published image has it too" gate "$sg/crit.json" "$sg/crit.json"
+expect 0 "scan-gate: a Critical the published image already has does not block (it is already out there)" gate "$sg/crit.json" "$sg/crit.json"
 expect 1 "scan-gate: a new Critical blocks" gate "$sg/crit.json" "$sg/clean.json"
+expect 1 "scan-gate: the first release blocks on a Critical too" gate "$sg/crit.json"
 expect 0 "scan-gate: fixing findings is reported and passes" gate "$sg/clean.json" "$sg/high.json"
-printf 'ignore:\n  - vulnerability: CVE-9 # reason (expires: 2026-12-31)\n' >"$sg/ok.yaml"
-printf 'ignore:\n  - vulnerability: CVE-9 # reason only\n' >"$sg/noexp.yaml"
-printf 'ignore:\n  - vulnerability: CVE-9 # reason (expires: 2026-01-01)\n' >"$sg/old.yaml"
-expect 0 "scan-gate: an exception with a reason and a future expiry is accepted" env GRYPE_CONFIG="$sg/ok.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
-expect 1 "scan-gate: an exception with no expiry blocks the release" env GRYPE_CONFIG="$sg/noexp.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
-expect 1 "scan-gate: an expired exception blocks the release" env GRYPE_CONFIG="$sg/old.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
-expect 0 "scan-gate: the repository's own .grype.yaml has valid expiries" env GRYPE_CONFIG="$here/.grype.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
+sgjson "$sg/two-crit-new-one.json" CVE-9:zlib:1.2:Critical:fixed CVE-10:libc:2:Critical:fixed CVE-11:libx:1:Critical:fixed
+sgjson "$sg/two-crit.json" CVE-9:zlib:1.2:Critical:fixed CVE-10:libc:2:Critical:fixed
+sgjson "$sg/one-crit-fixed-one-new.json" CVE-10:libc:2:Critical:fixed CVE-11:libx:1:Critical:fixed
+expect 0 "scan-gate: an image that still carries the same two Criticals is not worse" gate "$sg/two-crit.json" "$sg/two-crit.json"
+expect 1 "scan-gate: fixing one Critical while adding another is worse and blocks for a person to decide" gate "$sg/one-crit-fixed-one-new.json" "$sg/two-crit.json"
+expect 1 "scan-gate: adding a third Critical blocks" gate "$sg/two-crit-new-one.json" "$sg/two-crit.json"
+CARRIED_OUT="$sg/carried.json" FINDINGS_OUT="$sg/all.json" gate "$sg/two-crit.json" "$sg/two-crit.json" >/dev/null
+expect 0 "scan-gate: carried-forward findings are written out for the notes and issues" bash -c "python3 -c \"import json,sys; d=json.load(open('$sg/carried.json')); sys.exit(0 if len(d)==2 else 1)\""
+expect 0 "scan-gate: every current finding is written out for the issue tracker" bash -c "python3 -c \"import json,sys; d=json.load(open('$sg/all.json')); sys.exit(0 if {f['id'] for f in d}=={'CVE-9','CVE-10'} else 1)\""
+
+# --- bin/track-findings (with a fake gh that records what it is asked to do)
+tf=$tmp/track
+mkdir -p "$tf"
+cat >"$tf/gh" <<'GH'
+#!/usr/bin/env bash
+echo "$*" >>"$FAKE_LOG"
+case "$1 $2" in
+"issue list") cat "$FAKE_ISSUES" ;;
+esac
+GH
+chmod +x "$tf/gh"
+tf_run() { # tf_run <issues-json> <findings-json>: echoes the recorded gh calls
+  : >"$tf/log"
+  printf '%s' "$1" >"$tf/issues.json"
+  FAKE_LOG="$tf/log" FAKE_ISSUES="$tf/issues.json" GH="$tf/gh" "$here/bin/track-findings" "$2" >/dev/null
+}
+expect 0 "track-findings: opens an issue for a finding that has none" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[]' '$sg/all.json'; grep -q 'issue create --title Vulnerability: CVE-9 in zlib' '$tf/log'"
+expect 0 "track-findings: opens one issue per finding" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[]' '$sg/all.json'; [ \$(grep -c 'issue create' '$tf/log') -eq 2 ]"
+expect 0 "track-findings: does not duplicate an issue that is already open" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[{\"number\":7,\"title\":\"Vulnerability: CVE-9 in zlib\",\"body\":\"x\"}]' '$sg/all.json'; ! grep -q 'issue create --title Vulnerability: CVE-9 in zlib' '$tf/log'"
+expect 0 "track-findings: closes an open issue whose finding is gone" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[{\"number\":8,\"title\":\"Vulnerability: CVE-99 in gone\",\"body\":\"x\"}]' '$sg/all.json'; grep -q 'issue close 8' '$tf/log'"
+expect 0 "track-findings: leaves other issues alone" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[{\"number\":9,\"title\":\"Something else\",\"body\":\"x\"}]' '$sg/all.json'; ! grep -q 'issue close 9' '$tf/log'"
 
 # --- bin/dev
 expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"

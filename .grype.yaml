@@ -2,19 +2,19 @@
 # High and Critical findings that have a fix available (only-fixed in the
 # workflow). Unfixed base-image findings are still printed in the scan log.
 #
-# Accepted findings need a reason AND an expiry on the same line ("expires: YYYY-MM-DD"); bin/scan-gate blocks a release
-# when an entry has none or has expired. They are removed when the base image ships a fix.
+# This file is for false positives only: findings that do not apply to how the image uses the package. Give each a
+# reason. Real findings are not accepted here; bin/scan-gate blocks only what is new compared with the published image.
 # gRPC-Go is vendored inside the FrankenPHP/Caddy binary and used by its
 # OpenTelemetry exporters as a client. The image does not run a gRPC or xDS
 # server, which is what each advisory below requires. Upstream fixes arrive with
 # a FrankenPHP release; Dependabot proposes the image bump.
 ignore:
-  - vulnerability: GHSA-2v4p-qf9q-27wj # xDS servers: DoS via missing :authority/Host headers (expires: 2026-12-31)
+  - vulnerability: GHSA-2v4p-qf9q-27wj # xDS servers: DoS via missing :authority/Host headers
     package:
       name: google.golang.org/grpc
-  - vulnerability: GHSA-vp52-pcj8-j9qc # HTTP/2 DATA frame fragmentation OOM (expires: 2026-12-31)
+  - vulnerability: GHSA-vp52-pcj8-j9qc # HTTP/2 DATA frame fragmentation OOM
     package:
       name: google.golang.org/grpc
-  - vulnerability: GHSA-hrxh-6v49-42gf # xDS RBAC and HTTP/2 vulnerabilities (expires: 2026-12-31)
+  - vulnerability: GHSA-hrxh-6v49-42gf # xDS RBAC and HTTP/2 vulnerabilities
     package:
       name: google.golang.org/grpc
