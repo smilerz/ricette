@@ -4,6 +4,7 @@
 #   bin/release-plan release      weekly: is there anything new since the last version tag, and what is the next version?
 #   bin/release-plan nightly      daily: has main changed since the last nightly image?
 #   bin/release-plan context-changed <base>   does anything that could change the image differ from <base>? (prints relevant=true|false)
+#   bin/release-plan dockerignore-parity      needs Docker: does the matcher agree with what Docker really puts in the build context?
 #   bin/release-plan dockerignore-check       fail if .dockerignore excludes anything the Dockerfile copies into the image
 #   bin/release-plan tag vX.Y.Z  the build entry point: what to publish for an existing tag (used for the weekly tag and for re-runs)
 #   bin/release-plan notes [from-tag]   release notes (markdown) from the same reading of the history that picks the version
@@ -226,6 +227,28 @@ dockerignore-check)
   [ -z "$hidden" ] || exit 1
   echo "dockerignore-check: everything the Dockerfile copies is inside the build context"
   ;;
+dockerignore-parity)
+  # Ask Docker itself what is in the build context (a scratch image that copies everything) and compare it, for every
+  # tracked file, with what this script decided. A disagreement means the matcher above does not read .dockerignore
+  # the way Docker does, and the skip rule cannot be trusted.
+  command -v docker >/dev/null 2>&1 || { echo "dockerignore-parity needs Docker" >&2; exit 2; }
+  ctx=$(mktemp -d)
+  trap 'rm -rf "$ctx"' EXIT
+  printf 'FROM scratch\nCOPY . /\n' | docker build --quiet --no-cache -f - --output "type=local,dest=$ctx" . >/dev/null
+  git ls-files | grep -Ev '^(Dockerfile|\.dockerignore)$' | sort >"$ctx.tracked"
+  (cd "$ctx" && find . -type f | sed 's#^\./##' | sort) | grep -Fxf "$ctx.tracked" | sort >"$ctx.docker" || true
+  context_filter excluded <"$ctx.tracked" | sort >"$ctx.excluded"
+  comm -23 "$ctx.tracked" "$ctx.excluded" >"$ctx.script"
+  if diff -u "$ctx.docker" "$ctx.script" >"$ctx.diff"; then
+    echo "dockerignore-parity: the matcher agrees with Docker on all $(wc -l <"$ctx.tracked") tracked files"
+  else
+    echo "dockerignore-parity: the matcher and Docker disagree ('-' = only Docker has it in the context, '+' = only the matcher does):" >&2
+    head -40 "$ctx.diff" >&2
+    rm -f "$ctx.tracked" "$ctx.docker" "$ctx.excluded" "$ctx.script" "$ctx.diff"
+    exit 1
+  fi
+  rm -f "$ctx.tracked" "$ctx.docker" "$ctx.excluded" "$ctx.script" "$ctx.diff"
+  ;;
 context-changed)
   base=${2:?usage: bin/release-plan context-changed <base>}
   if context_changed "$base"; then out relevant true; else out relevant false; fi
@@ -315,7 +338,7 @@ notes)
   fi
   ;;
 *)
-  echo "usage: bin/release-plan release|nightly|tag|notes|context-changed|dockerignore-check" >&2
+  echo "usage: bin/release-plan release|nightly|tag|notes|context-changed|dockerignore-check|dockerignore-parity" >&2
   exit 2
   ;;
 esac

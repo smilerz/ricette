@@ -8,8 +8,12 @@
 # 2. PostgreSQL: the application starts before the database, retries until it is up,
 #    and then migrates.
 # 3. Reverse proxy: forwarded headers are ignored unless TRUSTED_PROXIES trusts the peer.
+# 0. (first) The .dockerignore reading used to decide whether a change needs an image agrees with Docker's own.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+# 0. The skip rule reads .dockerignore itself; prove that reading agrees with what Docker puts in the build context.
+./bin/release-plan dockerignore-parity
 
 IMAGE=${IMAGE:-ricette:ci}
 APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
