@@ -34,15 +34,14 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.sha }}
         run: |
-          relevant=true
           if [ "$EVENT" = pull_request ]; then
-            others=$(git diff --name-only "$BASE" "$HEAD" | grep -Ev '^(docs/|tests/|\.vscode/|\.github/(ISSUE_TEMPLATE/|pull_request_template\.md|CODEOWNERS)|[^/]+\.md$)' || true)
-            [ -z "$others" ] && relevant=false
-            echo "Files that need the image:"; echo "${others:-none}"
+            # One list decides what can change the image: .dockerignore. The workflow and its acceptance script also count,
+            # so a change to them still runs the checks they define.
+            EXTRA_RELEVANT='^(\.github/workflows/container\.yml|bin/checks/container-acceptance)$' ./bin/release-plan context-changed "$BASE" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "relevant=true" | tee -a "$GITHUB_OUTPUT"
           fi
-          echo "relevant=$relevant" | tee -a "$GITHUB_OUTPUT"
 
   # Each architecture builds natively (no emulation) and keeps its own layer cache.
   container-build:

@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Decides whether a Grype scan lets an image ship.
+
+    bin/scan-gate NEW.json [PUBLISHED.json]
+
+NEW.json is Grype's JSON for the image about to be published. PUBLISHED.json is Grype's JSON for the image currently
+published, scanned by the same job with the same vulnerability database (never a stored result, or every new database
+entry would look like a regression).
+
+Only findings with a fix available count, because nothing else can be acted on.
+
+  * No PUBLISHED.json (the first release): any High or Critical finding blocks.
+  * Otherwise a High finding blocks only if it is NEW, compared by vulnerability id and package, not by count. A High that
+    the published image already carries is reported but does not block, so a weekly release is not held up by a
+    problem the base image has not fixed yet.
+  * A Critical finding always blocks, new or old.
+  * The only way a Critical you cannot fix gets through is an entry in .grype.yaml under `ignore:`. Every entry must
+    carry a reason and an expiry on its `- vulnerability:` line as  `# reason ... expires: YYYY-MM-DD`; an entry with no
+    expiry, or one that has expired, blocks the release until someone looks at it again.
+
+Exit code 0 lets the image ship, 1 blocks it. TODAY (YYYY-MM-DD) and GRYPE_CONFIG can be set for tests.
+"""
+import datetime
+import json
+import os
+import re
+import sys
+
+
+def findings(path):
+    out = {}
+    for m in json.load(open(path)).get("matches", []):
+        v, a = m["vulnerability"], m["artifact"]
+        if v.get("severity") not in ("High", "Critical"):
+            continue
+        if (v.get("fix") or {}).get("state") != "fixed":
+            continue
+        out[(v["id"], a["name"])] = (v["severity"], a.get("version", "?"))
+    return out
+
+
+def expiry_problems(config_path, today):
+    problems = []
+    if not os.path.exists(config_path):
+        return problems
+    for n, line in enumerate(open(config_path), 1):
+        if not re.match(r"^\s*-\s*vulnerability:", line):
+            continue
+        m = re.search(r"expires:\s*(\d{4}-\d{2}-\d{2})", line)
+        if not m:
+            problems.append(f"{config_path}:{n} ignore entry has no 'expires: YYYY-MM-DD' (and a reason) on its line")
+        elif datetime.date.fromisoformat(m.group(1)) < today:
+            problems.append(f"{config_path}:{n} ignore entry expired on {m.group(1)}: fix it or renew it with a new reason")
+    return problems
+
+
+def main(argv):
+    if len(argv) not in (1, 2):
+        sys.exit(__doc__)
+    today = datetime.date.fromisoformat(os.environ.get("TODAY", datetime.date.today().isoformat()))
+    new = findings(argv[0])
+    old = findings(argv[1]) if len(argv) == 2 else None
+    blocked = []
+    for key, (sev, ver) in sorted(new.items()):
+        carried = old is not None and key in old
+        if sev == "Critical":
+            blocked.append(f"BLOCK  {sev:8s} {key[0]} in {key[1]} {ver} (critical findings with a fix always block)")
+        elif old is None:
+            blocked.append(f"BLOCK  {sev:8s} {key[0]} in {key[1]} {ver} (first release: no published image to compare with)")
+        elif not carried:
+            blocked.append(f"BLOCK  {sev:8s} {key[0]} in {key[1]} {ver} (new compared with the published image)")
+    carried_high = [k for k, (sev, _) in new.items() if sev == "High" and old is not None and k in old]
+    for key in sorted(carried_high):
+        print(f"KNOWN  High     {key[0]} in {key[1]} (already in the published image; not blocking)")
+    problems = expiry_problems(os.environ.get("GRYPE_CONFIG", ".grype.yaml"), today)
+    for p in problems:
+        print("BLOCK  " + p)
+    for b in blocked:
+        print(b)
+    fixed_old = [] if old is None else [k for k in old if k not in new]
+    if fixed_old:
+        print(f"FIXED  {len(fixed_old)} finding(s) in the published image are gone from this one")
+    if blocked or problems:
+        print(f"result: blocked ({len(blocked) + len(problems)} reason(s))")
+        return 1
+    print("result: ok")
+    return 0
+
+
+sys.exit(main(sys.argv[1:]))
