@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Writes shields.io endpoint badges from coverage reports.
+
+  bin/coverage-badge <output-dir> [--php clover.xml] [--js cobertura.xml]
+
+CI runs this on main and publishes the output to the `badges` branch; the README badges read the JSON from there.
+Line coverage only, rounded down, so a badge never claims more than the report shows.
+"""
+import json
+import math
+import os
+import sys
+import xml.etree.ElementTree as ET
+
+
+def php_percent(path):
+    metrics = ET.parse(path).getroot().find("./project/metrics")
+    if metrics is None:
+        raise SystemExit(f"{path}: not a clover report (no project metrics)")
+    total = int(metrics.get("statements", "0"))
+    covered = int(metrics.get("coveredstatements", "0"))
+    return 100.0 * covered / total if total else 0.0
+
+
+def js_percent(path):
+    root = ET.parse(path).getroot()
+    rate = root.get("line-rate")
+    if rate is None:
+        raise SystemExit(f"{path}: not a cobertura report (no line-rate)")
+    return 100.0 * float(rate)
+
+
+def colour(percent):
+    for floor, name in ((90, "brightgreen"), (80, "green"), (70, "yellowgreen"), (60, "yellow"), (50, "orange")):
+        if percent >= floor:
+            return name
+    return "red"
+
+
+def write(out_dir, name, label, percent):
+    shown = math.floor(percent)
+    with open(os.path.join(out_dir, f"{name}.json"), "w") as handle:
+        json.dump({"schemaVersion": 1, "label": label, "message": f"{shown}%", "color": colour(percent)}, handle)
+        handle.write("\n")
+
+
+def main(argv):
+    if not argv or argv[0].startswith("--"):
+        raise SystemExit(__doc__)
+    out_dir, args = argv[0], argv[1:]
+    os.makedirs(out_dir, exist_ok=True)
+    wrote = 0
+    while args:
+        flag, path, args = args[0], args[1], args[2:]
+        if flag == "--php":
+            write(out_dir, "coverage-php", "php coverage", php_percent(path))
+        elif flag == "--js":
+            write(out_dir, "coverage-js", "js coverage", js_percent(path))
+        else:
+            raise SystemExit(f"unknown option {flag}")
+        wrote += 1
+    if not wrote:
+        raise SystemExit("nothing to do: pass --php and/or --js")
+
+
+main(sys.argv[1:])

@@ -1,6 +1,8 @@
 # Ricette
 
 [![CI](https://github.com/smilerz/ricette/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/ci.yml)
+[![PHP coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsmilerz%2Fricette%2Fbadges%2Fcoverage-php.json)](docs/development/testing.md)
+[![JS coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsmilerz%2Fricette%2Fbadges%2Fcoverage-js.json)](docs/development/testing.md)
 [![Container](https://github.com/smilerz/ricette/actions/workflows/container.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/container.yml)
 [![Verify](https://github.com/smilerz/ricette/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/smilerz/ricette/actions/workflows/verify.yml)
 [![Code scanning](https://img.shields.io/badge/code%20scanning-CodeQL-informational.svg)](https://github.com/smilerz/ricette/security/code-scanning)
