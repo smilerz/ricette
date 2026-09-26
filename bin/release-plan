@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# Decides what the release workflow should publish. Pure git logic: no network, no registry.
+#
+#   bin/release-plan release      weekly: is there anything new since the last version tag, and what is the next version?
+#   bin/release-plan nightly      daily: has main changed since the last nightly image?
+#   bin/release-plan context-changed <base>   does anything that could change the image differ from <base>? (prints relevant=true|false)
+#   bin/release-plan dockerignore-parity      needs Docker: does the matcher agree with what Docker really puts in the build context?
+#   bin/release-plan dockerignore-check       fail if .dockerignore excludes anything the Dockerfile copies into the image
+#   bin/release-plan tag vX.Y.Z  the build entry point: what to publish for an existing tag (used for the weekly tag and for re-runs)
+#   bin/release-plan notes [from-tag]   release notes (markdown) from the same reading of the history that picks the version
+#
+# Prints KEY=VALUE lines (skip, reason, version, tags, sha, migrations), which the workflow appends to $GITHUB_OUTPUT.
+#
+# Inputs (environment):
+#   LAST_NIGHTLY_SHA   commit the current 'nightly' image was built from (empty if none exists yet)
+#   TAKEN_VERSION_TAGS newline-separated X.Y.Z tags that already exist in the registry (a release refuses to reuse one)
+#   REBUILD_REASON     (release) non-empty when the base image changed: ship the same commit again as a patch release
+#   BASE_IMAGE_NOTE    (notes) one line about a changed base image and the fixes it brings, written by the workflow
+#   IMAGE_NAME, IMAGE_DIGEST   (notes) print the exact-image pin line
+#   MAIN_REF           (tag) the branch a tagged commit must be reachable from (default: origin/main)
+#
+# Rules (docs/development/versioning.md, ADR-0029):
+#   * A release is cut only if commits have landed since the last v* tag AND at least one changed file is inside the
+#     Docker build context (not excluded by .dockerignore). One list, no second copy to keep in step.
+#   * Before 1.0: a breaking change or a feature bumps the minor version, anything else bumps the patch.
+#     From 1.0: breaking bumps major, a feature bumps minor, anything else bumps patch.
+#   * Tags on a release: X.Y.Z, X.Y, X (from 1.0), latest, sha-<short>.
+#   * Tags on a nightly: nightly (moves) and sha-<short>. Dated pin tags are deferred; the image digest is the pin.
+#   * A base-image rebuild with no new commits is a patch release of the same commit (REBUILD_REASON), without sha-<short>.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+kind=${1:-}
+head_sha=$(git rev-parse HEAD)
+short=${head_sha:0:7}
+
+out() { printf '%s=%s\n' "$1" "$2"; }
+skip() {
+  out skip true
+  out reason "$1"
+  exit 0
+}
+
+# What counts as "the image could change": any changed file that is inside the Docker build context, i.e. is not
+# excluded by .dockerignore. There is one list, and it is .dockerignore, read with Docker's own rules
+# (github.com/moby/patternmatcher): patterns are anchored at the context root; * ? and [...] never cross a "/";
+# **/ matches any number of directories, including none; a pattern also excludes everything below a directory it
+# matches; a leading ! re-includes; the LAST matching pattern wins. Dockerfile and .dockerignore always count.
+# A pattern Docker itself would reject counts every change as relevant, which can only cost an extra build.
+# EXTRA_RELEVANT is an optional regex of extra paths that should always count (used by CI to test its own workflow).
+context_filter() { # context_filter changed|excluded: reads paths on stdin (see the rules above)
+  local ignore_file
+  if [ "$1" = excluded ]; then ignore_file=$(cat .dockerignore 2>/dev/null || true); else ignore_file=$(git show HEAD:.dockerignore 2>/dev/null || true); fi
+  EXTRA_RELEVANT=${EXTRA_RELEVANT:-} DOCKERIGNORE=$ignore_file python3 -c '
+import os, re, sys
+
+def compile_pattern(pattern):
+    """Docker\x27s dockerignore pattern to a regular expression (same translation as moby/patternmatcher)."""
+    pattern = os.path.normpath(pattern.strip()).lstrip("/") if pattern.strip() else ""
+    out, i = "^", 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "*":
+            if i + 1 < len(pattern) and pattern[i + 1] == "*":
+                while i + 1 < len(pattern) and pattern[i + 1] == "*":
+                    i += 1
+                if i + 1 < len(pattern) and pattern[i + 1] == "/":
+                    i += 1  # "**/" is treated as "**"
+                out += ".*" if i + 1 >= len(pattern) else "(.*/)?"
+            else:
+                out += "[^/]*"
+        elif ch == "?":
+            out += "[^/]"
+        elif ch in ".$":
+            out += "\\" + ch
+        elif ch == "\\":
+            if i + 1 < len(pattern):
+                i += 1
+                out += "\\" + pattern[i]
+            else:
+                out += "\\\\"
+        else:
+            out += ch
+        i += 1
+    return re.compile(out + "$")
+
+rules, invalid = [], False
+for raw in os.environ["DOCKERIGNORE"].splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    negate = line.startswith("!")
+    body = line[1:] if negate else line
+    try:
+        rules.append((negate, compile_pattern(body)))
+    except re.error:
+        invalid = True
+
+def ignored(path):
+    parts = path.split("/")
+    candidates = ["/".join(parts[: k + 1]) for k in range(len(parts))]  # the path and each parent directory
+    excluded = False
+    for negate, rx in rules:
+        if any(rx.match(c) for c in candidates):
+            excluded = not negate
+    return excluded
+
+extra = re.compile(os.environ["EXTRA_RELEVANT"]) if os.environ["EXTRA_RELEVANT"] else None
+files = [l.strip() for l in sys.stdin if l.strip()]
+if sys.argv[1] == "excluded":
+    for f in files:
+        if f not in ("Dockerfile", ".dockerignore") and ignored(f):
+            print(f)
+    sys.exit(0)
+if invalid and files:
+    sys.stderr.write("release-plan: .dockerignore has a pattern Docker would reject; treating every change as relevant\n")
+    sys.exit(0)
+for f in files:
+    if f in ("Dockerfile", ".dockerignore") or (extra and extra.search(f)) or not ignored(f):
+        sys.exit(0)
+sys.exit(1)
+' "$1"
+}
+context_changed() { # context_changed <base>: succeeds when a file changed since <base> is inside the build context
+  git diff --name-only "$1" HEAD | context_filter changed
+}
+only_skippable() { # only_skippable <base>: true when nothing that could change the image changed since <base>
+  ! context_changed "$1"
+}
+
+case "$kind" in
+release)
+  last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --merged HEAD | sort -V | tail -1)
+  quiet=''
+  rebuild=false
+  if [ -n "$last" ]; then
+    range="$last..HEAD"
+    [ "$(git rev-list --count "$range")" -gt 0 ] || quiet="no commits since $last"
+    [ -n "$quiet" ] || { only_skippable "$last" && quiet="only documentation, tests or editor settings changed since $last"; }
+    if [ -n "$quiet" ]; then
+      # Nothing of ours changed. A new base image is still a reason to ship: the same commit, rebuilt, as a patch release.
+      [ -n "${REBUILD_REASON:-}" ] || skip "$quiet"
+      rebuild=true
+    fi
+    ver=${last#v}
+    IFS=. read -r major minor patch <<<"$ver"
+  else
+    range=HEAD
+    major=0 minor=0 patch=0
+  fi
+
+  # Dependabot bodies quote upstream changelogs (which can contain "BREAKING CHANGE"), so a bot's commit can only
+  # count through its subject line. A human commit counts through its subject or a "BREAKING CHANGE:" footer.
+  breaking=0 feature=0
+  while read -r commit; do
+    email=$(git log -1 --format=%ae "$commit")
+    subject=$(git log -1 --format=%s "$commit")
+    grep -Eq '^[a-z]+(\([^)]*\))?!:' <<<"$subject" && breaking=1
+    grep -Eq '^feat(\([^)]*\))?!?:' <<<"$subject" && feature=1
+    case "$email" in
+    *dependabot*) ;;
+    *) git log -1 --format=%b "$commit" | grep -Eq '^BREAKING[ -]CHANGE: ' && breaking=1 ;;
+    esac
+  done < <(git rev-list "$range")
+
+  if [ -z "$last" ]; then
+    major=0 minor=1 patch=0
+  elif [ "$rebuild" = true ]; then
+    patch=$((patch + 1))
+  elif [ "$major" -eq 0 ]; then
+    if [ $breaking -eq 1 ] || [ $feature -eq 1 ]; then minor=$((minor + 1)) patch=0; else patch=$((patch + 1)); fi
+  elif [ $breaking -eq 1 ]; then
+    major=$((major + 1)) minor=0 patch=0
+  elif [ $feature -eq 1 ]; then
+    minor=$((minor + 1)) patch=0
+  else
+    patch=$((patch + 1))
+  fi
+  version="$major.$minor.$patch"
+  if grep -qxF "$version" <<<"${TAKEN_VERSION_TAGS:-}"; then
+    echo "version $version is already published in the registry but has no matching git tag; refusing to overwrite it" >&2
+    exit 1
+  fi
+  migrations=false
+  if [ -n "$last" ] && git diff --name-only "$last" HEAD | grep -q '^database/migrations/'; then migrations=true; fi
+  tags="$version,$major.$minor"
+  [ "$major" -ge 1 ] && tags="$tags,$major"
+  tags="$tags,latest"
+  # sha-<short> means "built from this commit" and must stay immutable, so a rebuild of an old commit does not take it
+  [ "$rebuild" = true ] || tags="$tags,sha-$short"
+  out skip false
+  out kind release
+  out rebuild "$rebuild"
+  out version "$version"
+  out git_tag "v$version"
+  out previous "${last:-none}"
+  out migrations "$migrations"
+  out tags "$tags"
+  out sha "$head_sha"
+  ;;
+nightly)
+  last_sha=${LAST_NIGHTLY_SHA:-}
+  if [ -n "$last_sha" ]; then
+    [ "$last_sha" != "$head_sha" ] || skip "main has not changed since the last nightly ($short)"
+    if git cat-file -e "$last_sha^{commit}" 2>/dev/null; then
+      only_skippable "$last_sha" && skip "only documentation, tests or editor settings changed since the last nightly"
+    fi
+  fi
+  out skip false
+  out kind nightly
+  out version "nightly-$short"
+  out tags "nightly,sha-$short"
+  out sha "$head_sha"
+  ;;
+dockerignore-check)
+  # The dangerous direction: an exclusion that hides something the image needs. List every local COPY source in the
+  # Dockerfile, expand it to the tracked files under it, and fail if .dockerignore excludes any of them.
+  sources=$(awk '/^COPY / && !/--from=/ { for (i = 2; i < NF; i++) if ($i !~ /^--/) print $i }' Dockerfile | sed 's#^\./##; s#/$##')
+  hidden=''
+  while read -r src; do
+    [ -n "$src" ] || continue
+    files=$(git ls-files -- "$src")
+    [ -n "$files" ] || { echo "Dockerfile copies '$src', which has no tracked files" >&2; hidden=1; continue; }
+    excluded=$(context_filter excluded <<<"$files")
+    [ -z "$excluded" ] || { echo "Dockerfile copies '$src' but .dockerignore excludes:" >&2; echo "$excluded" | sed 's/^/  /' >&2; hidden=1; }
+  done <<<"$sources"
+  [ -z "$hidden" ] || exit 1
+  echo "dockerignore-check: everything the Dockerfile copies is inside the build context"
+  ;;
+dockerignore-parity)
+  # Ask Docker itself what is in the build context (a scratch image that copies everything) and compare it, for every
+  # tracked file, with what this script decided. A disagreement means the matcher above does not read .dockerignore
+  # the way Docker does, and the skip rule cannot be trusted.
+  command -v docker >/dev/null 2>&1 || { echo "dockerignore-parity needs Docker" >&2; exit 2; }
+  ctx=$(mktemp -d)
+  trap 'rm -rf "$ctx"' EXIT
+  printf 'FROM scratch\nCOPY . /\n' | docker build --quiet --no-cache -f - --output "type=local,dest=$ctx" . >/dev/null
+  git ls-files | grep -Ev '^(Dockerfile|\.dockerignore)$' | sort >"$ctx.tracked"
+  (cd "$ctx" && find . -type f | sed 's#^\./##' | sort) | grep -Fxf "$ctx.tracked" | sort >"$ctx.docker" || true
+  context_filter excluded <"$ctx.tracked" | sort >"$ctx.excluded"
+  comm -23 "$ctx.tracked" "$ctx.excluded" >"$ctx.script"
+  if diff -u "$ctx.docker" "$ctx.script" >"$ctx.diff"; then
+    echo "dockerignore-parity: the matcher agrees with Docker on all $(wc -l <"$ctx.tracked") tracked files"
+  else
+    echo "dockerignore-parity: the matcher and Docker disagree ('-' = only Docker has it in the context, '+' = only the matcher does):" >&2
+    head -40 "$ctx.diff" >&2
+    rm -f "$ctx.tracked" "$ctx.docker" "$ctx.excluded" "$ctx.script" "$ctx.diff"
+    exit 1
+  fi
+  rm -f "$ctx.tracked" "$ctx.docker" "$ctx.excluded" "$ctx.script" "$ctx.diff"
+  ;;
+context-changed)
+  base=${2:?usage: bin/release-plan context-changed <base>}
+  if context_changed "$base"; then out relevant true; else out relevant false; fi
+  ;;
+tag)
+  # The build entry point. It never looks at "what is new": the tag decides everything, so a re-run of a failed
+  # publish rebuilds exactly that tag's commit. Two guards:
+  #   * the tagged commit must be on main, so a tag on an unreviewed branch cannot publish a production image;
+  #   * the moving tags (X.Y, X, latest) only move when this tag is the highest version in that series, so re-running
+  #     an old release can never move users backwards.
+  tag=${2:-}
+  [[ $tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || { echo "usage: bin/release-plan tag vX.Y.Z" >&2; exit 2; }
+  tmajor=${BASH_REMATCH[1]} tminor=${BASH_REMATCH[2]}
+  version=${tag#v}
+  sha=$(git rev-parse "$tag^{commit}" 2>/dev/null) || { echo "tag $tag does not exist" >&2; exit 1; }
+  main_ref=${MAIN_REF:-origin/main}
+  git merge-base --is-ancestor "$sha" "$main_ref" 2>/dev/null || {
+    echo "$tag points at ${sha:0:7}, which is not on $main_ref; refusing to publish it" >&2
+    exit 1
+  }
+  all=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V)
+  highest() { # highest <prefix regex>: the highest tag matching the prefix
+    grep -E "$1" <<<"$all" | tail -1
+  }
+  tags="$version"
+  [ "$(highest "^v$tmajor\\.$tminor\\.")" = "$tag" ] && tags="$tags,$tmajor.$tminor"
+  if [ "$tmajor" -ge 1 ] && [ "$(highest "^v$tmajor\\.")" = "$tag" ]; then tags="$tags,$tmajor"; fi
+  [ "$(highest '^v')" = "$tag" ] && tags="$tags,latest"
+  # A commit with more than one version tag was rebuilt; sha-<short> must keep meaning one exact build.
+  [ "$(git tag --points-at "$sha" --list 'v[0-9]*' | wc -l)" -le 1 ] && tags="$tags,sha-${sha:0:7}"
+  out skip false
+  out kind release
+  out version "$version"
+  out git_tag "$tag"
+  out tags "$tags"
+  out sha "$sha"
+  ;;
+notes)
+  from=${2:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)}
+  range=${from:+$from..}HEAD
+  breaking_list='' feature_list='' fix_list='' bot_count=0
+  while read -r commit; do
+    email=$(git log -1 --format=%ae "$commit")
+    subject=$(git log -1 --format=%s "$commit")
+    sh=${commit:0:7}
+    case "$email" in
+    *dependabot*)
+      bot_count=$((bot_count + 1))
+      continue
+      ;;
+    esac
+    if [[ $subject =~ ^([a-z]+)(\([^\)]*\))?(!)?:\ (.+)$ ]]; then
+      type=${BASH_REMATCH[1]} bang=${BASH_REMATCH[3]} text=${BASH_REMATCH[4]}
+    else
+      continue # merge commits and anything that is not a conventional commit
+    fi
+    footer=$(git log -1 --format=%b "$commit" | sed -n 's/^BREAKING[ -]CHANGE: //p' | head -1)
+    if [ -n "$bang" ] || [ -n "$footer" ]; then
+      instruction=${footer:-"(the author gave no upgrade instructions; ask before upgrading)"}
+      breaking_list+="- **$text** ($sh)"$'\n'"  $instruction"$'\n'
+    elif [ "$type" = feat ]; then
+      feature_list+="- $text ($sh)"$'\n'
+    elif [ "$type" = fix ] || [ "$type" = perf ]; then
+      fix_list+="- $text ($sh)"$'\n'
+    fi
+  done < <(git rev-list "$range")
+
+  [ -z "$breaking_list" ] || printf '## Breaking changes\n\n%s\n' "$breaking_list"
+  [ -z "$feature_list" ] || printf '## Features\n\n%s\n' "$feature_list"
+  [ -z "$fix_list" ] || printf '## Fixes\n\n%s\n' "$fix_list"
+  if [ -z "$breaking_list$feature_list$fix_list" ]; then printf 'No user-visible changes in this release.\n\n'; fi
+
+  upgrading=''
+  if [ -n "$from" ]; then
+    migs=$(git diff --name-only --diff-filter=AM "$from" HEAD -- database/migrations | wc -l)
+    [ "$migs" -eq 0 ] || upgrading+="- **This release changes the database** ($migs new or changed migration files). It migrates on start. Back up your data volume first."$'\n'
+    added=$(git diff "$from" HEAD -- .env.example | sed -n 's/^+#\? \?\([A-Z][A-Z0-9_]*\)=.*/\1/p' | sort -u | paste -sd, - | sed 's/,/, /g')
+    removed=$(git diff "$from" HEAD -- .env.example | sed -n 's/^-#\? \?\([A-Z][A-Z0-9_]*\)=.*/\1/p' | sort -u | paste -sd, - | sed 's/,/, /g')
+    [ -z "$added" ] || upgrading+="- New settings in .env.example: $added."$'\n'
+    [ -z "$removed" ] || upgrading+="- Settings removed from .env.example: $removed."$'\n'
+  fi
+  [ -z "${BASE_IMAGE_NOTE:-}" ] || upgrading+="- $BASE_IMAGE_NOTE"$'\n'
+  [ "$bot_count" -eq 0 ] || upgrading+="- $bot_count dependency update(s) are included; see the pull requests labeled dependencies."$'\n'
+  printf '## Upgrading\n\n%s\n' "${upgrading:-No action needed.$'\n'}"
+  if [ -n "${IMAGE_NAME:-}" ] && [ -n "${IMAGE_DIGEST:-}" ]; then
+    printf '## This exact image\n\n```\ndocker pull %s@%s\n```\n' "$IMAGE_NAME" "$IMAGE_DIGEST"
+  fi
+  ;;
+*)
+  echo "usage: bin/release-plan release|nightly|tag|notes|context-changed|dockerignore-check|dockerignore-parity" >&2
+  exit 2
+  ;;
+esac

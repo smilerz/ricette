@@ -190,6 +190,320 @@ expect 0 "coverage-badge: output is the shields endpoint schema" grep -q '"schem
 expect 1 "coverage-badge: a report of the wrong kind fails" "$here/bin/coverage-badge" "$b/bad" --php "$b/cobertura.xml"
 expect 1 "coverage-badge: no report given fails" "$here/bin/coverage-badge" "$b/none"
 
+# --- bin/release-plan
+rp_repo() { # rp_repo <name>: an empty repo with a first commit; echoes its path
+  local d=$tmp/$1
+  mkdir -p "$d"
+  git -C "$d" init -q
+  git -C "$d" config user.name t
+  git -C "$d" config user.email t@t
+  git -C "$d" config commit.gpgsign false
+  printf '%s\n' docs tests .vscode .github '*.md' >"$d/.dockerignore"
+  echo "$d"
+}
+rp_commit() { # rp_commit <repo> <message> <file>: a commit that changes <file>
+  mkdir -p "$(dirname "$1/$3")"
+  echo "$RANDOM$RANDOM" >>"$1/$3"
+  git -C "$1" add -A
+  git -C "$1" commit -q -m "$2"
+}
+rp() { # rp <repo> <args...>: run bin/release-plan inside the repo
+  local d=$1
+  shift
+  (cd "$d" && "$here/bin/release-plan" "$@")
+}
+rp_has() { # rp_has <repo> <mode> _ <line>: the plan prints that exact line
+  local o
+  o=$(rp "$1" "${@:2:2}") || return 1
+  grep -qxF "${@:4}" <<<"$o"
+}
+
+r=$(rp_repo rp-first)
+rp_commit "$r" "feat: first thing" app/a.php
+expect 0 "release-plan: the first release is 0.1.0" rp_has "$r" release x "version=0.1.0"
+expect 0 "release-plan: a release is tagged with X.Y.Z, X.Y, latest and the commit" bash -c "cd '$r' && '$here/bin/release-plan' release | grep -q '^tags=0.1.0,0.1,latest,sha-'"
+git -C "$r" tag v0.1.0
+expect 0 "release-plan: nothing new since the tag is skipped" bash -c "cd '$r' && '$here/bin/release-plan' release | grep -qx 'skip=true'"
+rp_commit "$r" "docs: reword" docs/x.md
+rp_commit "$r" "test: add a case" tests/Feature/x.php
+expect 0 "release-plan: docs and tests alone do not make a release" bash -c "cd '$r' && '$here/bin/release-plan' release | grep -qx 'skip=true'"
+rp_commit "$r" "fix: a bug" app/b.php
+expect 0 "release-plan: a fix before 1.0 bumps the patch" rp_has "$r" release x "version=0.1.1"
+git -C "$r" tag v0.1.1
+rp_commit "$r" "feat: something new" app/c.php
+expect 0 "release-plan: a feature before 1.0 bumps the minor" rp_has "$r" release x "version=0.2.0"
+git -C "$r" tag v0.2.0
+rp_commit "$r" "refactor!: rename a thing" app/d.php
+expect 0 "release-plan: a breaking change before 1.0 bumps the minor" rp_has "$r" release x "version=0.3.0"
+expect 0 "release-plan: a pre-1.0 release has no bare major tag" bash -c "cd '$r' && ! '$here/bin/release-plan' release | grep '^tags=' | grep -Eq ',0,'"
+
+r=$(rp_repo rp-one)
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v1.2.3
+rp_commit "$r" "fix: small" app/b.php
+expect 0 "release-plan: from 1.0 a fix bumps the patch" rp_has "$r" release x "version=1.2.4"
+rp_commit "$r" "feat(ui): new page" app/c.php
+expect 0 "release-plan: from 1.0 a feature bumps the minor" rp_has "$r" release x "version=1.3.0"
+expect 0 "release-plan: from 1.0 the release also gets a major tag" bash -c "cd '$r' && '$here/bin/release-plan' release | grep -q '^tags=1.3.0,1.3,1,latest,'"
+rp_commit "$r" "chore: drop a thing
+
+BREAKING CHANGE: the setting is gone" app/d.php
+expect 0 "release-plan: from 1.0 a breaking change bumps the major" rp_has "$r" release x "version=2.0.0"
+
+r=$(rp_repo rp-bot)
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+mkdir -p "$r/app"
+echo bot >>"$r/app/b.php"
+git -C "$r" add -A
+git -C "$r" -c user.name=dependabot -c user.email=49699333+dependabot[bot]@users.noreply.github.com commit -q -m "build(deps): bump thing" -m "Release notes from upstream:
+BREAKING CHANGE: the old API is removed"
+expect 0 "release-plan: a quoted BREAKING CHANGE in a Dependabot body does not bump the minor" rp_has "$r" release x "version=0.1.1"
+rp_commit "$r" "fix: human change
+
+BREAKING CHANGE: a person meant this" app/c.php
+expect 0 "release-plan: a BREAKING CHANGE footer written by a person does" rp_has "$r" release x "version=0.2.0"
+r=$(rp_repo rp-taken)
+rp_commit "$r" "feat: start" app/a.php
+expect 1 "release-plan: a version already in the registry is refused, not overwritten" bash -c "cd '$r' && TAKEN_VERSION_TAGS=0.1.0 '$here/bin/release-plan' release"
+r=$(rp_repo rp-migr)
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+rp_commit "$r" "feat: a table" database/migrations/2026_01_01_000000_x.php
+expect 0 "release-plan: a change under database/migrations is flagged for the release notes" rp_has "$r" release x "migrations=true"
+rp_commit "$r" "fix: unrelated" app/z.php
+
+r=$(rp_repo rp-notes)
+mkdir -p "$r/database/migrations"
+printf 'APP_NAME=Ricette\nOLD_SETTING=1\n' >"$r/.env.example"
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+rp_commit "$r" "feat(ui): add the pantry page" app/b.php
+rp_commit "$r" "fix: stop a crash on empty recipes" app/c.php
+rp_commit "$r" "docs: reword the readme" docs/a.md
+rp_commit "$r" "chore: tidy" app/d.php
+rp_commit "$r" "ci: faster jobs" .github/x.yml
+rp_commit "$r" "feat!: rename the database setting
+
+BREAKING CHANGE: rename DB_HOST to DATABASE_HOST in your environment before upgrading" app/e.php
+rp_commit "$r" "refactor!: drop a thing" app/f.php
+printf 'APP_NAME=Ricette\nNEW_SETTING=2\n' >"$r/.env.example"
+rp_commit "$r" "feat: add a table" database/migrations/2026_01_01_000000_x.php
+git -C "$r" add -A
+git -C "$r" -c user.name=dependabot -c user.email=1+dependabot[bot]@users.noreply.github.com commit -q --allow-empty -m "build(deps): bump x" -m "BREAKING CHANGE: quoted"
+notes() { (cd "$r" && "$here/bin/release-plan" notes "$@"); }
+expect 0 "release-plan notes: features are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'add the pantry page'"
+expect 0 "release-plan notes: fixes are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'stop a crash on empty recipes'"
+expect 1 "release-plan notes: docs, chore and ci commits are left out" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -Eq 'reword the readme|tidy|faster jobs'"
+expect 0 "release-plan notes: a breaking change carries the author's upgrade instruction as written" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'rename DB_HOST to DATABASE_HOST in your environment before upgrading'"
+expect 0 "release-plan notes: a breaking change with no instruction is called out" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'gave no upgrade instructions'"
+expect 1 "release-plan notes: a bot's quoted BREAKING CHANGE is not reported as breaking" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'quoted'"
+expect 0 "release-plan notes: migrations produce a back-up warning" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'changes the database'"
+expect 0 "release-plan notes: new settings are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'NEW_SETTING'"
+expect 0 "release-plan notes: removed settings are listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'OLD_SETTING'"
+expect 0 "release-plan notes: dependency updates are counted, not listed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q '1 dependency update'"
+expect 0 "release-plan notes: the exact image pin is printed when the workflow supplies it" bash -c "cd '$r' && IMAGE_NAME=ghcr.io/x/y IMAGE_DIGEST=sha256:abc '$here/bin/release-plan' notes | grep -qF 'docker pull ghcr.io/x/y@sha256:abc'"
+expect 0 "release-plan notes: a base-image note appears under Upgrading" bash -c "cd '$r' && BASE_IMAGE_NOTE='The base image was updated.' '$here/bin/release-plan' notes | grep -q 'The base image was updated'"
+
+r=$(rp_repo rp-quiet)
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+rp_commit "$r" "docs: only words" docs/a.md
+expect 0 "release-plan notes: nothing to say and no action needed" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'No action needed'"
+
+r=$(rp_repo rp-rebuild)
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v1.4.0
+expect 0 "release-plan: no commits and no new base image is skipped" bash -c "cd '$r' && '$here/bin/release-plan' release | grep -qx 'skip=true'"
+expect 0 "release-plan: a base-image rebuild is a patch release" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'version=1.4.1'"
+expect 0 "release-plan: a rebuild is marked as one" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'rebuild=true'"
+expect 1 "release-plan: a rebuild does not take the commit tag, which must stay immutable" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep '^tags=' | grep -q 'sha-'"
+git -C "$r" tag v1.4.1
+expect 0 "release-plan: with two tags on one commit the highest version is the base" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'previous=v1.4.1'"
+expect 0 "release-plan: the next rebuild is 1.4.2, not 1.4.1 again" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'version=1.4.2'"
+rp_commit "$r" "fix: a real change" app/b.php
+expect 0 "release-plan: a real change with a new base image is one release, not two" bash -c "cd '$r' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'rebuild=false'"
+rp_commit "$r" "docs: words only" docs/z.md
+r2=$(rp_repo rp-rebuild-docs)
+rp_commit "$r2" "feat: start" app/a.php
+git -C "$r2" tag v0.3.0
+rp_commit "$r2" "docs: words only" docs/z.md
+expect 0 "release-plan: docs only plus a new base image still ships a rebuild" bash -c "cd '$r2' && REBUILD_REASON=base '$here/bin/release-plan' release | grep -qx 'version=0.3.1'"
+
+r=$(rp_repo rp-tag)
+rp_commit "$r" "feat: one" app/a.php
+git -C "$r" branch -M main
+git -C "$r" tag v1.2.0
+rp_commit "$r" "fix: two" app/b.php
+git -C "$r" tag v1.2.1
+rp_commit "$r" "feat: three" app/c.php
+git -C "$r" tag v1.3.0
+tg() { (cd "$r" && MAIN_REF=main "$here/bin/release-plan" tag "$@"); }
+expect 0 "release-plan tag: the newest release moves latest, its series tags and gets a commit tag" bash -c "cd '$r' && MAIN_REF=main '$here/bin/release-plan' tag v1.3.0 | grep -q '^tags=1.3.0,1.3,1,latest,sha-'"
+expect 0 "release-plan tag: re-running an older release does not move latest" bash -c "cd '$r' && MAIN_REF=main '$here/bin/release-plan' tag v1.2.1 | grep -q '^tags=1.2.1,1.2,sha-'"
+expect 1 "release-plan tag: re-running an older release never carries latest" bash -c "cd '$r' && MAIN_REF=main '$here/bin/release-plan' tag v1.2.1 | grep '^tags=' | grep -q latest"
+expect 1 "release-plan tag: re-running v1.2.0 does not move the 1.2 series tag off 1.2.1" bash -c "cd '$r' && MAIN_REF=main '$here/bin/release-plan' tag v1.2.0 | grep '^tags=' | grep -q ',1.2,'"
+expect 1 "release-plan tag: a tag that does not exist is refused" tg v9.9.9
+expect 1 "release-plan tag: a malformed tag is refused" tg 1.2
+git -C "$r" checkout -q -b topic
+rp_commit "$r" "feat: unreviewed branch work" app/d.php
+git -C "$r" tag v1.4.0
+expect 1 "release-plan tag: a tag on a commit that is not on main is refused" tg v1.4.0
+git -C "$r" checkout -q main
+git -C "$r" tag v1.3.1 "$(git -C "$r" rev-parse v1.3.0)"
+expect 1 "release-plan tag: a rebuilt commit (two tags) does not take the commit tag" bash -c "cd '$r' && MAIN_REF=main '$here/bin/release-plan' tag v1.3.1 | grep '^tags=' | grep -q sha-"
+
+r=$(rp_repo rp-dockerignore)
+printf '%s\n' docs tests .github .vscode '*.md' 'database/*.sqlite' 'storage/logs/*' >"$r/.dockerignore"
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+ctx() { (cd "$r" && "$here/bin/release-plan" context-changed v0.1.0 | grep -qx "relevant=$1"); }
+rp_commit "$r" "docs: words" docs/a.md
+rp_commit "$r" "docs: root readme" README.md
+expect 0 "context: docs and a root markdown file are outside the build context" ctx false
+rp_commit "$r" "test: a test" tests/Feature/x.php
+rp_commit "$r" "chore: editor" .vscode/settings.json
+expect 0 "context: tests and editor settings are outside the build context" ctx false
+rp_commit "$r" "docs: nested markdown" resources/notes/n.md
+expect 0 "context: a markdown file below the root is inside the context, as Docker reads *.md" ctx true
+git -C "$r" reset -q --hard HEAD~1
+rp_commit "$r" "chore: sqlite" database/local.sqlite
+expect 0 "context: database/*.sqlite is excluded" ctx false
+rp_commit "$r" "fix: code" app/b.php
+expect 0 "context: application code is inside the context" ctx true
+git -C "$r" reset -q --hard HEAD~1
+rp_commit "$r" "chore: new dockerignore" .dockerignore
+expect 0 "context: a change to .dockerignore itself counts" ctx true
+git -C "$r" reset -q --hard HEAD~1
+
+# Docker's own examples and the cases this repo relies on, each checked in isolation:
+#   dctx <patterns...> -- <path> <expected>: is <path>, changed since the tag, inside the context? (expected true/false)
+dctx() {
+  local pats=() path want
+  while [ "$1" != "--" ]; do pats+=("$1"); shift; done
+  shift
+  path=$1 want=$2
+  local d=$tmp/dctx-$RANDOM$RANDOM
+  mkdir -p "$d"
+  git -C "$d" init -q
+  git -C "$d" config user.name t
+  git -C "$d" config user.email t@t
+  git -C "$d" config commit.gpgsign false
+  printf '%s\n' "${pats[@]}" >"$d/.dockerignore"
+  mkdir -p "$d/$(dirname "$path")"
+  echo base >"$d/keep.txt"
+  git -C "$d" add -A
+  git -C "$d" commit -q -m "feat: base"
+  git -C "$d" tag base
+  echo x >"$d/$path"
+  git -C "$d" add -A
+  git -C "$d" commit -q -m "feat: change"
+  (cd "$d" && "$here/bin/release-plan" context-changed base | grep -qx "relevant=$want")
+}
+expect 0 "dockerignore: **/*.md excludes a markdown file at the root" dctx '**/*.md' -- README.md false
+expect 0 "dockerignore: **/*.md excludes a markdown file at any depth" dctx '**/*.md' -- resources/deep/notes.md false
+expect 0 "dockerignore: **/*.md leaves code alone" dctx '**/*.md' -- app/Thing.php true
+expect 0 "dockerignore: *.md excludes only the root, as Docker does" dctx '*.md' -- resources/notes.md true
+expect 0 "dockerignore: a/**/b matches with no directory between" dctx 'a/**/b' -- a/b false
+expect 0 "dockerignore: a/**/b matches with several directories between" dctx 'a/**/b' -- a/x/y/b false
+expect 0 "dockerignore: a/**/b does not match a different name" dctx 'a/**/b' -- a/x/c true
+expect 0 "dockerignore: a pattern excludes everything below a directory it matches" dctx 'docs' -- docs/x/y/z.php false
+expect 0 "dockerignore: trailing /** excludes the contents" dctx 'cache/**' -- cache/a/b false
+expect 0 "dockerignore: */temp* matches one directory level" dctx '*/temp*' -- somedir/temporary.txt false
+expect 0 "dockerignore: */temp* does not match two levels down" dctx '*/temp*' -- a/b/temp.txt true
+expect 0 "dockerignore: temp? matches one character" dctx 'temp?' -- tempa false
+expect 0 "dockerignore: temp? does not match zero characters" dctx 'temp?' -- temp true
+expect 0 "dockerignore: a character class matches" dctx 'log[0-9].txt' -- log3.txt false
+expect 0 "dockerignore: ! re-includes after an exclusion" dctx '*.md' '!README.md' -- README.md true
+expect 0 "dockerignore: ! leaves other files excluded" dctx '*.md' '!README.md' -- CHANGES.md false
+expect 0 "dockerignore: the last matching pattern wins" dctx '!README.md' '*.md' -- README.md false
+expect 0 "dockerignore: a comment line is ignored" dctx '# docs' -- docs/a.md true
+expect 0 "dockerignore: a leading slash anchors at the root" dctx '/docs' -- docs/a.md false
+expect 0 "dockerignore: Dockerfile always counts, even if listed" dctx 'Dockerfile' -- Dockerfile true
+expect 0 "dockerignore: a pattern Docker rejects makes every change count" dctx 'a[' docs -- docs/a.md true
+
+expect 0 "dockerignore-check: this repository's Dockerfile copies nothing that .dockerignore excludes" bash -c "cd '$here' && '$here/bin/release-plan' dockerignore-check"
+r=$(rp_repo rp-hidden)
+printf 'FROM scratch\nCOPY app ./app\nCOPY --from=x /y /z\nCOPY config docs ./\n' >"$r/Dockerfile"
+printf '%s\n' docs '**/*.php' >"$r/.dockerignore"
+mkdir -p "$r/app" "$r/config" "$r/docs"
+echo a >"$r/app/a.php"
+echo b >"$r/config/b.txt"
+echo c >"$r/docs/c.md"
+git -C "$r" add -A
+git -C "$r" commit -q -m "feat: files"
+expect 1 "dockerignore-check: an exclusion that hides something the Dockerfile copies fails" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check"
+expect 0 "dockerignore-check: it names the hidden files" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check 2>&1 | grep -q 'app/a.php'"
+r=$(rp_repo rp-fine)
+printf 'FROM scratch\nCOPY app ./app\n' >"$r/Dockerfile"
+printf '%s\n' docs '**/*.md' >"$r/.dockerignore"
+mkdir -p "$r/app"
+echo a >"$r/app/a.php"
+git -C "$r" add -A
+git -C "$r" commit -q -m "feat: files"
+expect 0 "dockerignore-check: a clean setup passes" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check"
+r=$(rp_repo rp-extra)
+printf '%s\n' .github >"$r/.dockerignore"
+rp_commit "$r" "feat: start" app/a.php
+git -C "$r" tag v0.1.0
+rp_commit "$r" "ci: a workflow" .github/workflows/container.yml
+expect 0 "context: an ignored path is still relevant when CI lists it as extra" bash -c "cd '$r' && EXTRA_RELEVANT='^\\.github/workflows/container\\.yml$' '$here/bin/release-plan' context-changed v0.1.0 | grep -qx relevant=true"
+expect 0 "context: without the extra rule the same change is not relevant" bash -c "cd '$r' && '$here/bin/release-plan' context-changed v0.1.0 | grep -qx relevant=false"
+
+r=$(rp_repo rp-nightly)
+rp_commit "$r" "feat: start" app/a.php
+expect 0 "release-plan: the first nightly has the moving tag and the commit tag" bash -c "cd '$r' && '$here/bin/release-plan' nightly | grep -q '^tags=nightly,sha-'"
+old=$(git -C "$r" rev-parse HEAD)
+expect 0 "release-plan: an unchanged main is not rebuilt" bash -c "cd '$r' && LAST_NIGHTLY_SHA=$old '$here/bin/release-plan' nightly | grep -qx 'skip=true'"
+rp_commit "$r" "docs: words" docs/y.md
+expect 0 "release-plan: a docs-only change is not rebuilt" bash -c "cd '$r' && LAST_NIGHTLY_SHA=$old '$here/bin/release-plan' nightly | grep -qx 'skip=true'"
+rp_commit "$r" "fix: real change" app/e.php
+expect 0 "release-plan: a real change is rebuilt" bash -c "cd '$r' && LAST_NIGHTLY_SHA=$old '$here/bin/release-plan' nightly | grep -qx 'skip=false'"
+expect 1 "release-plan: an unknown mode is refused" bash -c "cd '$r' && '$here/bin/release-plan' weekly"
+
+# --- bin/scan-gate
+sg=$tmp/scan-gate
+mkdir -p "$sg"
+sgjson() { # sgjson <file> <id:pkg:version:severity:fixstate>...: a minimal Grype report
+  local f=$1
+  shift
+  python3 - "$f" "$@" <<'PY'
+import json, sys
+matches = []
+for spec in sys.argv[2:]:
+    vid, pkg, ver, sev, fix = spec.split(":")
+    matches.append({"vulnerability": {"id": vid, "severity": sev, "fix": {"state": fix}}, "artifact": {"name": pkg, "version": ver}})
+json.dump({"matches": matches}, open(sys.argv[1], "w"))
+PY
+}
+: >"$sg/none.yaml"
+gate() { GRYPE_CONFIG="$sg/none.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$@"; }
+sgjson "$sg/clean.json"
+sgjson "$sg/high.json" CVE-1:openssl:3.0:High:fixed
+sgjson "$sg/high-unfixed.json" CVE-2:openssl:3.0:High:not-fixed
+sgjson "$sg/high-bumped.json" CVE-1:openssl:3.1:High:fixed
+sgjson "$sg/high-other-pkg.json" CVE-1:libssl:3.0:High:fixed
+sgjson "$sg/crit.json" CVE-9:zlib:1.2:Critical:fixed
+sgjson "$sg/medium.json" CVE-3:curl:8:Medium:fixed
+expect 0 "scan-gate: a clean first release passes" gate "$sg/clean.json"
+expect 1 "scan-gate: the first release is absolute, so a fixable High blocks" gate "$sg/high.json"
+expect 0 "scan-gate: a High with no fix available never blocks" gate "$sg/high-unfixed.json"
+expect 0 "scan-gate: Medium findings never block" gate "$sg/medium.json"
+expect 0 "scan-gate: a High the published image already has does not block" gate "$sg/high.json" "$sg/high.json"
+expect 0 "scan-gate: the same CVE in a bumped package version is not new" gate "$sg/high-bumped.json" "$sg/high.json"
+expect 1 "scan-gate: the same CVE in a different package is new" gate "$sg/high-other-pkg.json" "$sg/high.json"
+expect 1 "scan-gate: a new High compared with a clean published image blocks" gate "$sg/high.json" "$sg/clean.json"
+expect 1 "scan-gate: a Critical blocks even when the published image has it too" gate "$sg/crit.json" "$sg/crit.json"
+expect 1 "scan-gate: a new Critical blocks" gate "$sg/crit.json" "$sg/clean.json"
+expect 0 "scan-gate: fixing findings is reported and passes" gate "$sg/clean.json" "$sg/high.json"
+printf 'ignore:\n  - vulnerability: CVE-9 # reason (expires: 2026-12-31)\n' >"$sg/ok.yaml"
+printf 'ignore:\n  - vulnerability: CVE-9 # reason only\n' >"$sg/noexp.yaml"
+printf 'ignore:\n  - vulnerability: CVE-9 # reason (expires: 2026-01-01)\n' >"$sg/old.yaml"
+expect 0 "scan-gate: an exception with a reason and a future expiry is accepted" env GRYPE_CONFIG="$sg/ok.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
+expect 1 "scan-gate: an exception with no expiry blocks the release" env GRYPE_CONFIG="$sg/noexp.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
+expect 1 "scan-gate: an expired exception blocks the release" env GRYPE_CONFIG="$sg/old.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
+expect 0 "scan-gate: the repository's own .grype.yaml has valid expiries" env GRYPE_CONFIG="$here/.grype.yaml" TODAY=2026-09-26 "$here/bin/scan-gate" "$sg/clean.json" "$sg/clean.json"
+
 # --- bin/dev
 expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"
 expect 0 "bin/setup: is valid shell" bash -n "$here/bin/setup"
