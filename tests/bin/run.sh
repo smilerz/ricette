@@ -174,6 +174,22 @@ expect 0 "entrypoint: PostgreSQL boot does not create a SQLite file" run_entrypo
 expect 1 "entrypoint: no SQLite file for PostgreSQL" test -e "$e/data/db.sqlite"
 
 
+# --- bin/coverage-badge
+b=$tmp/badge
+mkdir -p "$b"
+cat >"$b/clover.xml" <<'XML'
+<?xml version="1.0"?><coverage><project><metrics statements="200" coveredstatements="181"/></project></coverage>
+XML
+cat >"$b/cobertura.xml" <<'XML'
+<?xml version="1.0"?><coverage line-rate="0.5"></coverage>
+XML
+expect 0 "coverage-badge: writes both badges" "$here/bin/coverage-badge" "$b/out" --php "$b/clover.xml" --js "$b/cobertura.xml"
+expect 0 "coverage-badge: rounds the PHP figure down, never up" grep -q '"message": "90%"' "$b/out/coverage-php.json"
+expect 0 "coverage-badge: colours by threshold" grep -q '"color": "orange"' "$b/out/coverage-js.json"
+expect 0 "coverage-badge: output is the shields endpoint schema" grep -q '"schemaVersion": 1' "$b/out/coverage-php.json"
+expect 1 "coverage-badge: a report of the wrong kind fails" "$here/bin/coverage-badge" "$b/bad" --php "$b/cobertura.xml"
+expect 1 "coverage-badge: no report given fails" "$here/bin/coverage-badge" "$b/none"
+
 # --- bin/dev
 expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"
 expect 0 "bin/setup: is valid shell" bash -n "$here/bin/setup"

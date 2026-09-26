@@ -75,3 +75,10 @@ that remains a review responsibility.
 Add an executable under [`bin/checks/`](../../bin/checks/), register it as a target in
 [`bin/verify`](../../bin/verify), cover its passing and failing paths in [`tests/bin/run.sh`](../../tests/bin/run.sh), and
 add a workflow that calls `./bin/verify <target>`.
+
+## Coverage badges
+
+On every push to `main`, the `coverage-badges` job in `ci.yml` turns the PHP and frontend coverage reports into
+badge data (`bin/coverage-badge`) and pushes two small JSON files to the `badges` branch. The README badges read
+them from there. It is the only job with write access, it never runs on a pull request, and the `badges` branch
+holds nothing else. The figure is line coverage rounded down.
