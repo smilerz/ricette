@@ -375,11 +375,73 @@ git -C "$r" reset -q --hard HEAD~1
 rp_commit "$r" "chore: new dockerignore" .dockerignore
 expect 0 "context: a change to .dockerignore itself counts" ctx true
 git -C "$r" reset -q --hard HEAD~1
-printf '%s\n' docs '**/*.md' >"$r/.dockerignore"
+
+# Docker's own examples and the cases this repo relies on, each checked in isolation:
+#   dctx <patterns...> -- <path> <expected>: is <path>, changed since the tag, inside the context? (expected true/false)
+dctx() {
+  local pats=() path want
+  while [ "$1" != "--" ]; do pats+=("$1"); shift; done
+  shift
+  path=$1 want=$2
+  local d=$tmp/dctx-$RANDOM$RANDOM
+  mkdir -p "$d"
+  git -C "$d" init -q
+  git -C "$d" config user.name t
+  git -C "$d" config user.email t@t
+  git -C "$d" config commit.gpgsign false
+  printf '%s\n' "${pats[@]}" >"$d/.dockerignore"
+  mkdir -p "$d/$(dirname "$path")"
+  echo base >"$d/keep.txt"
+  git -C "$d" add -A
+  git -C "$d" commit -q -m "feat: base"
+  git -C "$d" tag base
+  echo x >"$d/$path"
+  git -C "$d" add -A
+  git -C "$d" commit -q -m "feat: change"
+  (cd "$d" && "$here/bin/release-plan" context-changed base | grep -qx "relevant=$want")
+}
+expect 0 "dockerignore: **/*.md excludes a markdown file at the root" dctx '**/*.md' -- README.md false
+expect 0 "dockerignore: **/*.md excludes a markdown file at any depth" dctx '**/*.md' -- resources/deep/notes.md false
+expect 0 "dockerignore: **/*.md leaves code alone" dctx '**/*.md' -- app/Thing.php true
+expect 0 "dockerignore: *.md excludes only the root, as Docker does" dctx '*.md' -- resources/notes.md true
+expect 0 "dockerignore: a/**/b matches with no directory between" dctx 'a/**/b' -- a/b false
+expect 0 "dockerignore: a/**/b matches with several directories between" dctx 'a/**/b' -- a/x/y/b false
+expect 0 "dockerignore: a/**/b does not match a different name" dctx 'a/**/b' -- a/x/c true
+expect 0 "dockerignore: a pattern excludes everything below a directory it matches" dctx 'docs' -- docs/x/y/z.php false
+expect 0 "dockerignore: trailing /** excludes the contents" dctx 'cache/**' -- cache/a/b false
+expect 0 "dockerignore: */temp* matches one directory level" dctx '*/temp*' -- somedir/temporary.txt false
+expect 0 "dockerignore: */temp* does not match two levels down" dctx '*/temp*' -- a/b/temp.txt true
+expect 0 "dockerignore: temp? matches one character" dctx 'temp?' -- tempa false
+expect 0 "dockerignore: temp? does not match zero characters" dctx 'temp?' -- temp true
+expect 0 "dockerignore: a character class matches" dctx 'log[0-9].txt' -- log3.txt false
+expect 0 "dockerignore: ! re-includes after an exclusion" dctx '*.md' '!README.md' -- README.md true
+expect 0 "dockerignore: ! leaves other files excluded" dctx '*.md' '!README.md' -- CHANGES.md false
+expect 0 "dockerignore: the last matching pattern wins" dctx '!README.md' '*.md' -- README.md false
+expect 0 "dockerignore: a comment line is ignored" dctx '# docs' -- docs/a.md true
+expect 0 "dockerignore: a leading slash anchors at the root" dctx '/docs' -- docs/a.md false
+expect 0 "dockerignore: Dockerfile always counts, even if listed" dctx 'Dockerfile' -- Dockerfile true
+expect 0 "dockerignore: a pattern Docker rejects makes every change count" dctx 'a[' docs -- docs/a.md true
+
+expect 0 "dockerignore-check: this repository's Dockerfile copies nothing that .dockerignore excludes" bash -c "cd '$here' && '$here/bin/release-plan' dockerignore-check"
+r=$(rp_repo rp-hidden)
+printf 'FROM scratch\nCOPY app ./app\nCOPY --from=x /y /z\nCOPY config docs ./\n' >"$r/Dockerfile"
+printf '%s\n' docs '**/*.php' >"$r/.dockerignore"
+mkdir -p "$r/app" "$r/config" "$r/docs"
+echo a >"$r/app/a.php"
+echo b >"$r/config/b.txt"
+echo c >"$r/docs/c.md"
 git -C "$r" add -A
-git -C "$r" commit -q -m "chore: fancy ignore"
-rp_commit "$r" "docs: words again" docs/b.md
-expect 0 "context: syntax the script cannot read makes every change count (safe direction)" ctx true
+git -C "$r" commit -q -m "feat: files"
+expect 1 "dockerignore-check: an exclusion that hides something the Dockerfile copies fails" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check"
+expect 0 "dockerignore-check: it names the hidden files" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check 2>&1 | grep -q 'app/a.php'"
+r=$(rp_repo rp-fine)
+printf 'FROM scratch\nCOPY app ./app\n' >"$r/Dockerfile"
+printf '%s\n' docs '**/*.md' >"$r/.dockerignore"
+mkdir -p "$r/app"
+echo a >"$r/app/a.php"
+git -C "$r" add -A
+git -C "$r" commit -q -m "feat: files"
+expect 0 "dockerignore-check: a clean setup passes" bash -c "cd '$r' && '$here/bin/release-plan' dockerignore-check"
 r=$(rp_repo rp-extra)
 printf '%s\n' .github >"$r/.dockerignore"
 rp_commit "$r" "feat: start" app/a.php

@@ -4,6 +4,7 @@
 #   bin/release-plan release      weekly: is there anything new since the last version tag, and what is the next version?
 #   bin/release-plan nightly      daily: has main changed since the last nightly image?
 #   bin/release-plan context-changed <base>   does anything that could change the image differ from <base>? (prints relevant=true|false)
+#   bin/release-plan dockerignore-check       fail if .dockerignore excludes anything the Dockerfile copies into the image
 #   bin/release-plan tag vX.Y.Z  the build entry point: what to publish for an existing tag (used for the weekly tag and for re-runs)
 #   bin/release-plan notes [from-tag]   release notes (markdown) from the same reading of the history that picks the version
 #
@@ -40,47 +41,87 @@ skip() {
 }
 
 # What counts as "the image could change": any changed file that is inside the Docker build context, i.e. is not
-# excluded by .dockerignore. There is one list, and it is .dockerignore. Only the syntax this repo uses is understood
-# (plain names, directories, single-segment * and ? patterns, ! re-inclusion); anything else in .dockerignore
-# (for example **) makes every change count, which only ever costs an extra build, never a missed one.
+# excluded by .dockerignore. There is one list, and it is .dockerignore, read with Docker's own rules
+# (github.com/moby/patternmatcher): patterns are anchored at the context root; * ? and [...] never cross a "/";
+# **/ matches any number of directories, including none; a pattern also excludes everything below a directory it
+# matches; a leading ! re-includes; the LAST matching pattern wins. Dockerfile and .dockerignore always count.
+# A pattern Docker itself would reject counts every change as relevant, which can only cost an extra build.
 # EXTRA_RELEVANT is an optional regex of extra paths that should always count (used by CI to test its own workflow).
-context_changed() { # context_changed <base>: succeeds when a file changed since <base> is inside the build context
-  git diff --name-only "$1" HEAD | EXTRA_RELEVANT=${EXTRA_RELEVANT:-} DOCKERIGNORE="$(git show HEAD:.dockerignore 2>/dev/null || true)" python3 -c '
-import fnmatch, os, re, sys
+context_filter() { # context_filter changed|excluded: reads paths on stdin (see the rules above)
+  local ignore_file
+  if [ "$1" = excluded ]; then ignore_file=$(cat .dockerignore 2>/dev/null || true); else ignore_file=$(git show HEAD:.dockerignore 2>/dev/null || true); fi
+  EXTRA_RELEVANT=${EXTRA_RELEVANT:-} DOCKERIGNORE=$ignore_file python3 -c '
+import os, re, sys
 
-rules, unsupported = [], False
+def compile_pattern(pattern):
+    """Docker\x27s dockerignore pattern to a regular expression (same translation as moby/patternmatcher)."""
+    pattern = os.path.normpath(pattern.strip()).lstrip("/") if pattern.strip() else ""
+    out, i = "^", 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "*":
+            if i + 1 < len(pattern) and pattern[i + 1] == "*":
+                while i + 1 < len(pattern) and pattern[i + 1] == "*":
+                    i += 1
+                if i + 1 < len(pattern) and pattern[i + 1] == "/":
+                    i += 1  # "**/" is treated as "**"
+                out += ".*" if i + 1 >= len(pattern) else "(.*/)?"
+            else:
+                out += "[^/]*"
+        elif ch == "?":
+            out += "[^/]"
+        elif ch in ".$":
+            out += "\\" + ch
+        elif ch == "\\":
+            if i + 1 < len(pattern):
+                i += 1
+                out += "\\" + pattern[i]
+            else:
+                out += "\\\\"
+        else:
+            out += ch
+        i += 1
+    return re.compile(out + "$")
+
+rules, invalid = [], False
 for raw in os.environ["DOCKERIGNORE"].splitlines():
     line = raw.strip()
     if not line or line.startswith("#"):
         continue
     negate = line.startswith("!")
-    pat = line[1:] if negate else line
-    pat = pat.strip("/")
-    if "**" in pat or "\\" in pat:
-        unsupported = True
-    rules.append((negate, pat.split("/")))
+    body = line[1:] if negate else line
+    try:
+        rules.append((negate, compile_pattern(body)))
+    except re.error:
+        invalid = True
 
 def ignored(path):
     parts = path.split("/")
-    hit = False
-    for negate, pparts in rules:
-        # a pattern excludes a path when it matches the path itself or any parent directory of it
-        for k in range(1, len(parts) + 1):
-            if len(pparts) == k and all(fnmatch.fnmatchcase(parts[i], pparts[i]) for i in range(k)):
-                hit = not negate
-                break
-    return hit
+    candidates = ["/".join(parts[: k + 1]) for k in range(len(parts))]  # the path and each parent directory
+    excluded = False
+    for negate, rx in rules:
+        if any(rx.match(c) for c in candidates):
+            excluded = not negate
+    return excluded
 
 extra = re.compile(os.environ["EXTRA_RELEVANT"]) if os.environ["EXTRA_RELEVANT"] else None
 files = [l.strip() for l in sys.stdin if l.strip()]
-if unsupported and files:
-    sys.stderr.write("release-plan: .dockerignore uses syntax this script does not read; treating every change as relevant\n")
+if sys.argv[1] == "excluded":
+    for f in files:
+        if f not in ("Dockerfile", ".dockerignore") and ignored(f):
+            print(f)
+    sys.exit(0)
+if invalid and files:
+    sys.stderr.write("release-plan: .dockerignore has a pattern Docker would reject; treating every change as relevant\n")
     sys.exit(0)
 for f in files:
     if f in ("Dockerfile", ".dockerignore") or (extra and extra.search(f)) or not ignored(f):
         sys.exit(0)
 sys.exit(1)
-'
+' "$1"
+}
+context_changed() { # context_changed <base>: succeeds when a file changed since <base> is inside the build context
+  git diff --name-only "$1" HEAD | context_filter changed
 }
 only_skippable() { # only_skippable <base>: true when nothing that could change the image changed since <base>
   ! context_changed "$1"
@@ -169,6 +210,21 @@ nightly)
   out version "nightly-$short"
   out tags "nightly,sha-$short"
   out sha "$head_sha"
+  ;;
+dockerignore-check)
+  # The dangerous direction: an exclusion that hides something the image needs. List every local COPY source in the
+  # Dockerfile, expand it to the tracked files under it, and fail if .dockerignore excludes any of them.
+  sources=$(awk '/^COPY / && !/--from=/ { for (i = 2; i < NF; i++) if ($i !~ /^--/) print $i }' Dockerfile | sed 's#^\./##; s#/$##')
+  hidden=''
+  while read -r src; do
+    [ -n "$src" ] || continue
+    files=$(git ls-files -- "$src")
+    [ -n "$files" ] || { echo "Dockerfile copies '$src', which has no tracked files" >&2; hidden=1; continue; }
+    excluded=$(context_filter excluded <<<"$files")
+    [ -z "$excluded" ] || { echo "Dockerfile copies '$src' but .dockerignore excludes:" >&2; echo "$excluded" | sed 's/^/  /' >&2; hidden=1; }
+  done <<<"$sources"
+  [ -z "$hidden" ] || exit 1
+  echo "dockerignore-check: everything the Dockerfile copies is inside the build context"
   ;;
 context-changed)
   base=${2:?usage: bin/release-plan context-changed <base>}
@@ -259,7 +315,7 @@ notes)
   fi
   ;;
 *)
-  echo "usage: bin/release-plan release|nightly|tag|notes|context-changed" >&2
+  echo "usage: bin/release-plan release|nightly|tag|notes|context-changed|dockerignore-check" >&2
   exit 2
   ;;
 esac

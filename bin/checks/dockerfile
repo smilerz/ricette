@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Dockerfile lint (Foundation 0 §30).
+# Dockerfile lint (Foundation 0 §30), plus a check that .dockerignore does not hide anything the Dockerfile copies.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 # shellcheck source=bin/lib.sh
 source bin/lib.sh
 
 py_tool hadolint-py 2.15.1.2 hadolint Dockerfile
+./bin/release-plan dockerignore-check
