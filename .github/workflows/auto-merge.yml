@@ -17,7 +17,7 @@ name: auto-merge
 # Uses the smilerz-merge-bot GitHub App (already installed on smilerz/recipes for the same purpose) rather than
 # registering a second app: add smilerz/ricette to its installed repositories, confirm it has Contents: write
 # (recipes never needed that permission, since it only approves and enables auto-merge; this file also pushes
-# branch-update commits), and copy its BOT_APP_ID / BOT_PRIVATE_KEY into this repo's own secrets.
+# branch-update commits), and copy its BOT_CLIENT_ID / BOT_PRIVATE_KEY into this repo's own secrets.
 #
 # The merge must not be enabled with the default GITHUB_TOKEN: GitHub does not start new workflow runs for events
 # caused by GITHUB_TOKEN, and that includes the merge this triggers once checks pass. ci.yml, container.yml and
@@ -64,7 +64,7 @@ jobs:
         if: steps.eligible.outputs.ok == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.BOT_APP_ID }}
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
       - name: Enable or turn off auto-merge
         env:
@@ -103,7 +103,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.BOT_APP_ID }}
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
       - name: Update every open PR that has auto-merge enabled and is behind main
         env:
