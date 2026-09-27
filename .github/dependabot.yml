@@ -24,3 +24,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Node's odd-numbered majors (19, 21, 23, 25, ...) are Current-only and never reach LTS -- a policy Node
+      # itself plans to retire starting with v27, when every major becomes LTS (revisit this entry once v27's
+      # status is confirmed). Dependabot has no even/odd concept, so the only way to enforce "skip odd majors" is
+      # to block automatic major bumps for the Node base image entirely; patch and minor updates within 24.x still
+      # flow normally. When it's time to move up, a maintainer picks the next even major by hand and updates it in
+      # the Dockerfile, .github/workflows/ci.yml and .devcontainer/devcontainer.json together.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

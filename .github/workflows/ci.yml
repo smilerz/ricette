@@ -14,7 +14,7 @@ concurrency:
 
 env:
   PHP_VERSION: "8.4"
-  NODE_VERSION: "25"
+  NODE_VERSION: "24"
 
 jobs:
   # Everything that only inspects files and dependencies, in one runner instead of four.

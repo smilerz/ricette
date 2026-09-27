@@ -5,7 +5,7 @@ The application is Laravel 13 with Svelte 5 and Inertia 3 (ADR-0002, ADR-0003).
 ## Quick start
 
 The recommended way is the dev container in [`.devcontainer/`](../../.devcontainer/devcontainer.json). It has PHP 8.4
-with the extensions the app needs, plus Xdebug and pcov, Node 25, pnpm, the GitHub CLI and Docker access. On first
+with the extensions the app needs, plus Xdebug and pcov, Node 24, pnpm, the GitHub CLI and Docker access. On first
 start it runs `./bin/setup` and installs the Playwright browser, so there is nothing to install by hand.
 
 - **VS Code:** install the Dev Containers extension, open the repository, choose "Reopen in Container". You need
@@ -34,7 +34,7 @@ because that differs on every machine; it tells you what to install and how.
 | --- | --- | --- |
 | PHP | 8.3 or newer (CI and the image use 8.4) | Extensions: `pdo_sqlite`, `intl`, `mbstring`, `zip`, `sodium`, `xml`, `curl`. Add `pdo_pgsql` to run the tests against PostgreSQL. |
 | Composer | 2 | |
-| Node | 22 or newer (CI and the image use 25) | |
+| Node | 22 or newer (CI and the image use 24, an LTS release; Node's odd-numbered majors are Current-only and never reach LTS, so this project skips them — a policy Node itself plans to retire starting with v27, when every major becomes LTS) | |
 | pnpm | 12.6 (pinned in `package.json`, ADR-0020) | `npm install --global pnpm@12.6.0` |
 | `jq`, `npx`, and `uvx` or `pipx` | any | Used by the repository-wide checks. |
 | Git identity | | `user.name` and `user.email` are used by the DCO sign-off (`-s`) on every commit. |
