@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Decides whether a Grype scan lets an image ship.
+
+    bin/scan-gate NEW.json [PUBLISHED.json]
+
+NEW.json is Grype's JSON for the image about to be published. PUBLISHED.json is Grype's JSON for the image currently
+published, scanned by the same job with the same vulnerability database (never a stored result, or every new database
+entry would look like a regression).
+
+The one question: is the new image worse than the one that is already published?
+
+  * Only High and Critical findings that have a fix available count; nothing else can be acted on.
+  * A finding blocks if it is NEW: present in NEW.json and absent from PUBLISHED.json, compared by vulnerability id and
+    package, not by count. A package version bump that still carries the same CVE is not new.
+  * A finding the published image already has never blocks, at any severity. Stopping the release would not remove it
+    from anyone already running the published image; it would only withhold the rest of what the release fixes.
+    Carried-forward findings stay visible instead: they go in the release notes and get a tracking issue.
+  * The first release has no published image to compare with, so every High or Critical finding blocks.
+  * A base-image bump that fixes two Criticals and adds a new one is blocked. Carrying a finding forward is not the same
+    act as shipping a new one, so a person decides that case.
+  * .grype.yaml is for false positives only (Grype drops those matches before this script sees them).
+
+Exit code 0 lets the image ship, 1 blocks it.
+
+If CARRIED_OUT is set, the findings the new image carries forward from the published one are written there as JSON
+(for the release notes and the tracking issues). FINDINGS_OUT receives every High or Critical finding of the new image.
+"""
+import json
+import os
+import sys
+
+
+def findings(path):
+    out = {}
+    for m in json.load(open(path)).get("matches", []):
+        v, a = m["vulnerability"], m["artifact"]
+        if v.get("severity") not in ("High", "Critical"):
+            continue
+        if (v.get("fix") or {}).get("state") != "fixed":
+            continue
+        out[(v["id"], a["name"])] = {"id": v["id"], "package": a["name"], "version": a.get("version", "?"), "severity": v["severity"]}
+    return out
+
+
+def main(argv):
+    if len(argv) not in (1, 2):
+        sys.exit(__doc__)
+    new = findings(argv[0])
+    old = findings(argv[1]) if len(argv) == 2 else None
+    blocked, carried = [], []
+    for key, f in sorted(new.items()):
+        if old is None:
+            blocked.append(f"BLOCK  {f['severity']:8s} {f['id']} in {f['package']} {f['version']} (first release: no published image to compare with)")
+        elif key in old:
+            carried.append(f)
+        else:
+            blocked.append(f"BLOCK  {f['severity']:8s} {f['id']} in {f['package']} {f['version']} (new compared with the published image)")
+    for f in carried:
+        print(f"KNOWN  {f['severity']:8s} {f['id']} in {f['package']} {f['version']} (already in the published image; not blocking)")
+    gone = [] if old is None else [k for k in old if k not in new]
+    if gone:
+        print(f"FIXED  {len(gone)} finding(s) in the published image are gone from this one")
+    if os.environ.get("CARRIED_OUT"):
+        json.dump(carried, open(os.environ["CARRIED_OUT"], "w"), indent=2)
+    if os.environ.get("FINDINGS_OUT"):
+        json.dump(sorted(new.values(), key=lambda f: (f["id"], f["package"])), open(os.environ["FINDINGS_OUT"], "w"), indent=2)
+    if blocked:
+        for b in blocked:
+            print(b)
+        print(f"result: blocked ({len(blocked)} reason(s))")
+        return 1
+    print("result: ok")
+    return 0
+
+
+sys.exit(main(sys.argv[1:]))
