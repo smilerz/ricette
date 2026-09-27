@@ -539,6 +539,25 @@ expect 0 "track-findings: does not duplicate an issue that is already open" bash
 expect 0 "track-findings: closes an open issue whose finding is gone" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[{\"number\":8,\"title\":\"Vulnerability: CVE-99 in gone\",\"body\":\"x\"}]' '$sg/all.json'; grep -q 'issue close 8' '$tf/log'"
 expect 0 "track-findings: leaves other issues alone" bash -c "$(declare -f tf_run); tf=$tf; here=$here; tf_run '[{\"number\":9,\"title\":\"Something else\",\"body\":\"x\"}]' '$sg/all.json'; ! grep -q 'issue close 9' '$tf/log'"
 
+# --- Node version policy: Node's odd-numbered majors are Current-only and never reach LTS (a policy Node itself
+# plans to retire starting with v27 -- revisit these once that lands). dependabot.yml can only block automatic major
+# bumps, not pick an even one, so the actual "stay even" guarantee lives here: three files pin the same major
+# (Dockerfile, ci.yml, the dev container), and none of them may drift from the others or land on an odd number.
+dockerfile_major=$(grep -oE 'FROM node:[0-9]+' "$here/Dockerfile" | grep -oE '[0-9]+')
+ci_major=$(grep -oE 'NODE_VERSION: "[0-9]+"' "$here/.github/workflows/ci.yml" | grep -oE '[0-9]+')
+devcontainer_major=$(python3 -c "import json; print(json.load(open('$here/.devcontainer/devcontainer.json'))['features']['ghcr.io/devcontainers/features/node:1']['version'])")
+expect 0 "node version: the Dockerfile pins an even (LTS-track) Node major" bash -c "[ \$(( $dockerfile_major % 2 )) -eq 0 ]"
+expect 0 "node version: ci.yml agrees with the Dockerfile" bash -c "[ '$ci_major' = '$dockerfile_major' ]"
+expect 0 "node version: the dev container agrees with the Dockerfile" bash -c "[ '$devcontainer_major' = '$dockerfile_major' ]"
+expect 0 "node version: dependabot blocks major bumps for the Node image" python3 -c "
+import yaml, sys
+d = yaml.safe_load(open('$here/.github/dependabot.yml'))
+docker = [u for u in d['updates'] if u['package-ecosystem'] == 'docker'][0]
+ignores = docker.get('ignore', [])
+ok = any(i.get('dependency-name') == 'node' and 'version-update:semver-major' in i.get('update-types', []) for i in ignores)
+sys.exit(0 if ok else 1)
+"
+
 # --- bin/dev
 expect 0 "bin/dev: is valid shell" bash -n "$here/bin/dev"
 expect 0 "bin/setup: is valid shell" bash -n "$here/bin/setup"
