@@ -26,6 +26,8 @@ name: auto-merge
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -33,7 +35,7 @@ permissions:
 jobs:
   decide:
     name: decide
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -80,12 +82,19 @@ jobs:
 
   # UNPROVEN: ricette has only `main`, whose ruleset requires branches to be up to date before merging. When several
   # PRs (a Dependabot batch) all have auto-merge enabled, the first one to merge leaves the rest behind and stuck.
-  # This job updates every such PR after a push to main, using the app token so the resulting push is a normal one
-  # CI reacts to (a GITHUB_TOKEN update would leave the branch with zero checks and no closer to mergeable).
-  # Watch the first real Dependabot batch closely; this exact shape has not been run in production before.
+  # This job runs on every push to main (a merge to main IS a push, so this fires right when a PR needs unsticking),
+  # using the app token so the resulting push is a normal one CI reacts to (a GITHUB_TOKEN update would leave the
+  # branch with zero checks and no closer to mergeable). Watch the first real Dependabot batch closely; this exact
+  # shape has not been run in production before.
+  #
+  # An earlier version of this job checked `github.ref == 'refs/heads/main'` instead of the event name, on the
+  # mistaken assumption that this only had meaning for a push. For pull_request_target, github.ref is always the
+  # repository's default branch (main here), not the ref that triggered the run — so that condition was always
+  # true, for every PR event, and this job never actually ran in response to a merge, only coincidentally when some
+  # other PR happened to get an event afterward. Gate explicitly on the event name instead.
   keep-up-to-date:
     name: keep auto-merge PRs up to date with main
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions: {}
