@@ -87,6 +87,9 @@ jobs:
     needs: [changes, container-build]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,15 +120,53 @@ jobs:
           name: sbom
           path: sbom.spdx.json
           retention-days: 30
-      - name: Scan for known vulnerabilities
+      # Same policy as a release (ADR-0029, bin/scan-gate): only a finding that is NEW compared with the currently
+      # published image blocks. Something the published image already has doesn't block a PR either, for the same
+      # reason it doesn't block a release: failing this PR would not remove that finding from anyone already
+      # running the published image. Until a first image is published there is nothing to compare against, so the
+      # gate is absolute (matches ADR-0029's "first release" rule).
+      - name: Scan the new image
+        id: scan_new
         if: needs.changes.outputs.relevant == 'true'
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           image: ricette:ci
-          fail-build: true
-          severity-cutoff: high
-          output-format: table
+          fail-build: false
+          output-format: json
           only-fixed: true
+      - name: Log in to pull the published image to compare with
+        if: needs.changes.outputs.relevant == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull the published image, if one exists yet
+        id: published
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          if docker pull ghcr.io/smilerz/ricette:latest; then
+            docker tag ghcr.io/smilerz/ricette:latest ricette:published
+            echo "exists=true" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+      - name: Scan the published image (same job, same vulnerability database)
+        id: scan_old
+        if: needs.changes.outputs.relevant == 'true' && steps.published.outputs.exists == 'true'
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ricette:published
+          fail-build: false
+          output-format: json
+          only-fixed: true
+      - name: Gate on what is new
+        if: needs.changes.outputs.relevant == 'true'
+        env:
+          NEW: ${{ steps.scan_new.outputs.json }}
+          OLD: ${{ steps.scan_old.outputs.json }}
+        run: |
+          if [ -n "$OLD" ]; then ./bin/scan-gate "$NEW" "$OLD"; else ./bin/scan-gate "$NEW"; fi
 
   container-acceptance:
     name: container-acceptance

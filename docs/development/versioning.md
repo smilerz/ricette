@@ -49,3 +49,6 @@ Images are published to `ghcr.io/smilerz/ricette` (ADR-0029, ADR-0017).
   the release; a finding the published image already has does not. Those are listed in the release notes and tracked
   in issues labeled `vulnerability`, which `bin/track-findings` opens and closes on its own. `.grype.yaml` is only for
   false positives.
+- The same "worse than published" comparison is what `container-scan` uses on a pull request (`container.yml`), so a
+  PR is never blocked by a finding the running image already carries. Until a first image is published there is
+  nothing to compare against, so the gate is absolute for everyone until then.
