@@ -308,6 +308,13 @@ expect 1 "release-plan notes: no known-vulnerabilities section when there are no
 expect 0 "release-plan notes: the exact image pin is printed when the workflow supplies it" bash -c "cd '$r' && IMAGE_NAME=ghcr.io/x/y IMAGE_DIGEST=sha256:abc '$here/bin/release-plan' notes | grep -qF 'docker pull ghcr.io/x/y@sha256:abc'"
 expect 0 "release-plan notes: a base-image note appears under Upgrading" bash -c "cd '$r' && BASE_IMAGE_NOTE='The base image was updated.' '$here/bin/release-plan' notes | grep -q 'The base image was updated'"
 
+r=$(rp_repo rp-first-notes)
+rp_commit "$r" "feat: the first thing" app/a.php
+rp_commit "$r" "fix: the second thing" app/b.php
+git -C "$r" tag v0.1.0
+expect 0 "release-plan notes: an explicit empty start lists the whole history for a first release" bash -c "cd '$r' && '$here/bin/release-plan' notes '' | grep -q 'the first thing'"
+expect 0 "release-plan notes: with no argument the range starts at the last tag" bash -c "cd '$r' && '$here/bin/release-plan' notes | grep -q 'No user-visible changes'"
+
 r=$(rp_repo rp-quiet)
 rp_commit "$r" "feat: start" app/a.php
 git -C "$r" tag v0.1.0
