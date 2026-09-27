@@ -16,7 +16,9 @@ prefix="Vulnerability: "
 
 $gh label create vulnerability --description "A known vulnerability in the published image (managed by bin/track-findings)" --color B60205 >/dev/null 2>&1 || true
 
-open=$($gh issue list --label vulnerability --state open --limit 500 --json number,title,body)
+# The REST listing, not `gh issue list --label`: that one goes through the search index, which lags, so a second run right
+# after the first would not see the issue it just opened and would open it again.
+open=$($gh api --paginate --slurp "repos/{owner}/{repo}/issues?labels=vulnerability&state=open&per_page=100" | jq '[.[][] | select(.pull_request | not) | {number, title, body}]')
 
 # Open or refresh one issue per current finding.
 while IFS=$'\t' read -r id package version severity; do

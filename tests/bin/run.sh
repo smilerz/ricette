@@ -523,8 +523,8 @@ mkdir -p "$tf"
 cat >"$tf/gh" <<'GH'
 #!/usr/bin/env bash
 echo "$*" >>"$FAKE_LOG"
-case "$1 $2" in
-"issue list") cat "$FAKE_ISSUES" ;;
+case "$1" in
+api) echo "[$(cat "$FAKE_ISSUES")]" ;;
 esac
 GH
 chmod +x "$tf/gh"
