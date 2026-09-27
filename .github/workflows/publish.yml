@@ -1,0 +1,348 @@
+name: publish
+
+# The build entry point. It takes a TAG (or, for a nightly, a planned commit) and publishes exactly that: it never asks
+# "what is new", so re-running a failed publish rebuilds the same commit. It is reached three ways:
+#   * release.yml calls it after creating the weekly tag or choosing a nightly (workflow_call);
+#   * a maintainer pushes a vX.Y.Z tag by hand (push);
+#   * a maintainer re-runs a failed publish for an existing tag (workflow_dispatch).
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_call:
+    inputs:
+      kind:
+        type: string
+        required: true
+      tag:
+        type: string
+        default: ""
+      sha:
+        type: string
+        default: ""
+      version:
+        type: string
+        default: ""
+      tags:
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)publish, for example v0.3.1
+        type: string
+        required: true
+      overwrite:
+        description: Replace a version that is already published (only to finish a release that failed part way)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Every "run" step fails when any command in a pipeline fails, so a swallowed error cannot look like success.
+defaults:
+  run:
+    shell: bash
+
+# One publish at a time, and never cancel one that is half way through pushing.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/smilerz/ricette
+
+jobs:
+  prepare:
+    name: prepare
+    if: github.repository == 'smilerz/ricette'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      kind: ${{ steps.what.outputs.kind }}
+      tag: ${{ steps.what.outputs.git_tag }}
+      version: ${{ steps.what.outputs.version }}
+      tags: ${{ steps.what.outputs.tags }}
+      sha: ${{ steps.what.outputs.sha }}
+      base_digest: ${{ steps.base.outputs.digest }}
+      first_release: ${{ steps.published.outputs.first }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Work out exactly what to publish
+        id: what
+        env:
+          IN_KIND: ${{ inputs.kind }}
+          IN_TAG: ${{ inputs.tag }}
+          IN_SHA: ${{ inputs.sha }}
+          IN_VERSION: ${{ inputs.version }}
+          IN_TAGS: ${{ inputs.tags }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          OVERWRITE: ${{ inputs.overwrite }}
+        run: |
+          # Note: inside a reusable workflow github.event_name is the CALLER's event, so decide from the inputs instead.
+          if [ "$IN_KIND" = nightly ]; then
+            # A nightly is only ever built from a commit that is on main.
+            git merge-base --is-ancestor "$IN_SHA" origin/main
+            { echo "kind=nightly"; echo "version=$IN_VERSION"; echo "tags=$IN_TAGS"; echo "sha=$IN_SHA"; echo "git_tag="; } | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=$IN_TAG
+          if [ -z "$tag" ] && [ "$REF_TYPE" = tag ]; then tag=$REF_NAME; fi
+          [ -n "$tag" ] || { echo "::error::no tag to publish"; exit 1; }
+          # The tag decides everything, and its commit must be on main: a tag on an unreviewed branch never publishes.
+          ./bin/release-plan tag "$tag" | tee plan.out
+          # A version tag is never silently replaced with different bytes. A re-run is for a publish that failed, and a failed
+          # publish has not pushed the version tag yet. To finish a release that failed AFTER the tags were pushed, say so.
+          version=${tag#v}
+          if docker buildx imagetools inspect "$IMAGE:$version" >/dev/null 2>&1 && [ "$OVERWRITE" != true ]; then
+            echo "::error::$IMAGE:$version is already published. Refusing to replace it. If the release failed part way and you mean to finish it, run this workflow again with overwrite ticked."
+            exit 1
+          fi
+          cat plan.out >>"$GITHUB_OUTPUT"
+      - name: Base image digest (recorded on the image so the next planning run can tell when it changed)
+        id: base
+        run: |
+          base=$(awk '/^FROM .* AS php-base/ {print $2}' Dockerfile)
+          echo "digest=$(docker buildx imagetools inspect "$base" --format '{{json .Manifest}}' | jq -r .digest)" | tee -a "$GITHUB_OUTPUT"
+      - name: Is there a published image to compare against?
+        id: published
+        run: |
+          if docker buildx imagetools inspect "$IMAGE:latest" >/dev/null 2>&1; then echo "first=false"; else echo "first=true"; fi | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    name: build (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      # Always the planned commit, never whatever main has moved on to.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Scan before anything is pushed: an image that fails the gate never reaches the registry.
+      - name: Build for scanning
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          push: false
+          tags: ricette:scan
+          cache-from: type=gha,scope=${{ matrix.arch }}
+      - name: Generate SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ricette:scan
+          format: spdx-json
+          output-file: sbom-${{ matrix.arch }}.spdx.json
+          upload-artifact: false
+      - name: Scan the new image
+        id: scan_new
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ricette:scan
+          fail-build: false
+          output-format: json
+          only-fixed: true
+      - name: Pull the published image to compare with
+        if: needs.prepare.outputs.first_release == 'false'
+        run: docker pull --platform linux/${{ matrix.arch }} "$IMAGE:latest"
+      - name: Scan the published image (same job, same vulnerability database)
+        id: scan_old
+        if: needs.prepare.outputs.first_release == 'false'
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ghcr.io/smilerz/ricette:latest
+          fail-build: false
+          output-format: json
+          only-fixed: true
+      # The one question: is the new image worse than the one that is published? Anything already in the published image is
+      # carried forward (listed in the notes, tracked in an issue) and never blocks.
+      - name: Gate on what is new
+        env:
+          NEW: ${{ steps.scan_new.outputs.json }}
+          OLD: ${{ steps.scan_old.outputs.json }}
+          CARRIED_OUT: ${{ runner.temp }}/scan/carried.json
+          FINDINGS_OUT: ${{ runner.temp }}/scan/findings.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/scan"
+          if [ -n "$OLD" ]; then ./bin/scan-gate "$NEW" "$OLD"; else ./bin/scan-gate "$NEW"; fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: scan-${{ matrix.arch }}
+          path: ${{ runner.temp }}/scan/*.json
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Push by digest
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          provenance: false
+          sbom: false
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/main/docs/operations/deployment.md
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.licenses=MPL-2.0
+          cache-from: type=gha,scope=${{ matrix.arch }}
+      - name: Keep the digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          retention-days: 1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ matrix.arch }}
+          path: sbom-${{ matrix.arch }}.spdx.json
+          retention-days: 30
+
+  publish:
+    name: publish
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digests-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: sbom-*
+          path: ${{ runner.temp }}/sbom
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: scan-amd64
+          path: ${{ runner.temp }}/scan
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: What did the base image look like in the published image?
+        id: previous
+        run: |
+          prev=$(docker buildx imagetools inspect "$IMAGE:latest" --raw 2>/dev/null | jq -r '.annotations["org.ricette.base-digest"] // empty' || true)
+          echo "base_digest=$prev" | tee -a "$GITHUB_OUTPUT"
+      - name: Combine both architectures under the tags
+        id: manifest
+        env:
+          TAGS: ${{ needs.prepare.outputs.tags }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          BASE: ${{ needs.prepare.outputs.base_digest }}
+        run: |
+          args=()
+          IFS=, read -ra list <<<"$TAGS"
+          for t in "${list[@]}"; do args+=(-t "$IMAGE:$t"); done
+          digests=()
+          for f in "$RUNNER_TEMP"/digests/*; do digests+=("$IMAGE@sha256:$(basename "$f")"); done
+          [ "${#digests[@]}" -eq 2 ] || { echo "expected one digest per architecture, found ${#digests[@]}" >&2; exit 1; }
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --annotation "index:org.opencontainers.image.revision=$SHA" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --annotation "index:org.ricette.base-digest=$BASE" \
+            "${args[@]}" "${digests[@]}"
+          first=${list[0]}
+          digest=$(docker buildx imagetools inspect "$IMAGE:$first" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "$IMAGE:$first"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+      - name: GitHub release with notes built from the same reading of the history as the version
+        if: needs.prepare.outputs.kind == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TAGS: ${{ needs.prepare.outputs.tags }}
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+          OLD_BASE: ${{ steps.previous.outputs.base_digest }}
+          NEW_BASE: ${{ needs.prepare.outputs.base_digest }}
+        run: |
+          prev=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --merged HEAD | sort -V | grep -vx "$TAG" | tail -1 || true)
+          note=''
+          if [ -n "$OLD_BASE" ] && [ "$OLD_BASE" != "$NEW_BASE" ]; then
+            note="The base image (FrankenPHP) was updated: ${OLD_BASE:0:19} to ${NEW_BASE:0:19}. This includes the operating-system fixes published since the last release."
+          fi
+          known=$RUNNER_TEMP/scan/carried.json
+          [ -f "$known" ] || known=''
+          KNOWN_FINDINGS_FILE=$known BASE_IMAGE_NOTE=$note IMAGE_NAME=$IMAGE IMAGE_DIGEST=$DIGEST ./bin/release-plan notes "$prev" >"$RUNNER_TEMP/notes.md"
+          files=("$RUNNER_TEMP"/sbom/sbom-amd64/sbom-amd64.spdx.json "$RUNNER_TEMP"/sbom/sbom-arm64/sbom-arm64.spdx.json)
+          latest_flag=()
+          case ",$TAGS," in *,latest,*) latest_flag=(--latest) ;; *) latest_flag=(--latest=false) ;; esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "${latest_flag[@]}"
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "${latest_flag[@]}" "${files[@]}"
+          fi
+      # One issue per known vulnerability in what is now published: opened when it appears, closed when it is gone.
+      - name: Keep the vulnerability issues in step with the published image
+        if: needs.prepare.outputs.kind == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f "$RUNNER_TEMP/scan/findings.json" ]; then ./bin/track-findings "$RUNNER_TEMP/scan/findings.json"; else echo "no findings file; nothing to track"; fi
