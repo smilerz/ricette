@@ -1,0 +1,108 @@
+name: auto-merge
+
+# Turns on GitHub's native auto-merge for a PR authored by smilerz (the maintainer, and this repo's only agent
+# identity: an agent's commits are signed with the maintainer's own key, so GitHub cannot and does not need to tell
+# them apart) or by Dependabot with a patch or minor update (ADR-0026: a major bump always needs review). There is
+# no opt-out: a PR that shouldn't be merged is a PR that shouldn't have been opened.
+#
+# Auto-merge only queues the PR. GitHub still waits for every required check on `main` to pass, and a force-push
+# or closing the PR cancels it on its own. Ricette requires zero approvals, so there is no approve step here
+# (contrast a repo that requires one, where the app that opened the PR cannot also approve it and needs a second app).
+#
+# pull_request_target, not pull_request: for a same-repo PR, `pull_request` runs the workflow definition FROM the
+# PR's own branch with write permissions, so a PR editing this file could evaluate its own edited rule against
+# itself. pull_request_target always runs main's copy. The usual risk with pull_request_target (secrets reaching
+# untrusted checked-out code) does not apply: this job never checks anything out, it only reads PR metadata.
+#
+# Uses the smilerz-merge-bot GitHub App (already installed on smilerz/recipes for the same purpose) rather than
+# registering a second app: add smilerz/ricette to its installed repositories, confirm it has Contents: write
+# (recipes never needed that permission, since it only approves and enables auto-merge; this file also pushes
+# branch-update commits), and copy its BOT_APP_ID / BOT_PRIVATE_KEY into this repo's own secrets.
+#
+# The merge must not be enabled with the default GITHUB_TOKEN: GitHub does not start new workflow runs for events
+# caused by GITHUB_TOKEN, and that includes the merge this triggers once checks pass. ci.yml, container.yml and
+# verify.yml all run on push to main; they would silently stop running for every auto-merged PR. A GitHub App
+# installation token is used instead, so the eventual merge is a normal push that CI reacts to as usual.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  decide:
+    name: decide
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Dependabot update metadata
+        id: dependabot
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Decide eligibility
+        id: eligible
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
+        run: |
+          ok=false
+          if [ "$AUTHOR" = smilerz ]; then
+            ok=true
+          elif [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != version-update:semver-major ]; then
+            ok=true
+          fi
+          echo "ok=$ok" | tee -a "$GITHUB_OUTPUT"
+      - name: Mint an installation token for the auto-merge app
+        id: app
+        if: steps.eligible.outputs.ok == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+      - name: Enable or turn off auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          URL: ${{ github.event.pull_request.html_url }}
+          OK: ${{ steps.eligible.outputs.ok }}
+        run: |
+          if [ "$OK" = true ]; then
+            gh pr merge --auto --merge "$URL"
+          else
+            # A GITHUB_TOKEN fallback is fine here: disabling auto-merge (or finding it was never on) needs no
+            # elevated token and this path never merges anything.
+            gh pr merge --disable-auto "$URL" || true
+          fi
+
+  # UNPROVEN: ricette has only `main`, whose ruleset requires branches to be up to date before merging. When several
+  # PRs (a Dependabot batch) all have auto-merge enabled, the first one to merge leaves the rest behind and stuck.
+  # This job updates every such PR after a push to main, using the app token so the resulting push is a normal one
+  # CI reacts to (a GITHUB_TOKEN update would leave the branch with zero checks and no closer to mergeable).
+  # Watch the first real Dependabot batch closely; this exact shape has not been run in production before.
+  keep-up-to-date:
+    name: keep auto-merge PRs up to date with main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - name: Mint an installation token for the auto-merge app
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+      - name: Update every open PR that has auto-merge enabled and is behind main
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh pr list --state open --json number,autoMergeRequest,mergeStateStatus --jq \
+            '.[] | select(.autoMergeRequest != null and .mergeStateStatus == "BEHIND") | .number' |
+          while read -r number; do
+            echo "updating #$number"
+            gh pr update-branch "$number" || echo "::warning::could not update #$number"
+          done
