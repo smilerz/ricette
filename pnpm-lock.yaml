@@ -167,8 +167,8 @@ importers:
   .:
     dependencies:
       '@inertiajs/core':
-        specifier: ^3.7.1
-        version: 3.7.1
+        specifier: ^3.8.0
+        version: 3.8.0
       '@inertiajs/svelte':
         specifier: ^3.7.1
         version: 3.7.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))
@@ -410,6 +410,14 @@ packages:
 
   '@inertiajs/core@3.7.1':
     resolution: {integrity: sha512-shFvLhu/8R0QgYxsQVR5Pj9LvCnnodUSHZtg5b9yVfd9MG75zuw43/ZBy0iYxIzmI36HkFlmM94ji49Jcx9Q4Q==}
+    peerDependencies:
+      axios: ^1.15.2
+    peerDependenciesMeta:
+      axios:
+        optional: true
+
+  '@inertiajs/core@3.8.0':
+    resolution: {integrity: sha512-jTNnVtyGzyS016GH2WpAzgT0ZygWAZMe+J2QaY80zQaNBrOBR0KNOVVbQm5XwiF9oG5Eaqp0gpQwmGixnZjoCA==}
     peerDependencies:
       axios: ^1.15.2
     peerDependenciesMeta:
@@ -1063,6 +1071,14 @@ packages:
 
   laravel-precognition@2.0.0:
     resolution: {integrity: sha512-dmA4HGc9m+TsVNsJs9/XQBI8u6j7coilN+qKkBuhuXQzH3HypwS/c5dFQ4UqUGjBbcxIM7zdk91kM/SRZwIvWQ==}
+    peerDependencies:
+      axios: ^1.4.0
+    peerDependenciesMeta:
+      axios:
+        optional: true
+
+  laravel-precognition@2.1.0:
+    resolution: {integrity: sha512-W9ZobjRAReiIawSWxXUPR6q+Bvq5seO6tn+scdURl/JKOFKveXvR4Sno2KxGqQt2cI81nh8Vt2cFlaOMqXqLNw==}
     peerDependencies:
       axios: ^1.4.0
     peerDependenciesMeta:
@@ -1760,6 +1776,12 @@ snapshots:
       es-toolkit: 1.52.0
       laravel-precognition: 2.0.0
 
+  '@inertiajs/core@3.8.0':
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      es-toolkit: 1.52.0
+      laravel-precognition: 2.1.0
+
   '@inertiajs/svelte@3.7.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))':
     dependencies:
       '@inertiajs/core': 3.7.1
@@ -2380,6 +2402,10 @@ snapshots:
   known-css-properties@0.37.0: {}
 
   laravel-precognition@2.0.0:
+    dependencies:
+      es-toolkit: 1.52.0
+
+  laravel-precognition@2.1.0:
     dependencies:
       es-toolkit: 1.52.0
 
