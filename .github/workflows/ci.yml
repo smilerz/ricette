@@ -105,7 +105,7 @@ jobs:
         run: ./bin/verify coverage-php mutation
         env:
           COVERAGE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'skip' }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push' && matrix.database == 'sqlite'
         with:
           name: coverage-php
@@ -131,7 +131,7 @@ jobs:
         run: ./bin/verify frontend coverage-js
         env:
           COVERAGE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'skip' }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push'
         with:
           name: coverage-js
@@ -220,7 +220,7 @@ jobs:
             pnpm exec playwright install --with-deps chromium
           fi
       - run: pnpm run e2e
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-report
