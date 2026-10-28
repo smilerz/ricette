@@ -44,7 +44,7 @@ inside the scripts. The PHP and frontend targets also need the toolchain in
 | `php-test` | Pest; SQLite by default, PostgreSQL via `DB_CONNECTION=pgsql` | `php-test (sqlite)`, `php-test (pgsql)` (the SQLite job also runs `coverage-php` and `mutation`, so the tests run once) |
 | `frontend` | Prettier, ESLint, svelte-check and tsc, Vitest with coverage, translation validation | `frontend` (also runs `coverage-js`) |
 | `dockerfile` | Dockerfile lint | `static` |
-| `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `static` |
+| `composer-audit` | Known-vulnerability audit for Composer and pnpm dependencies | `audit` (daily and on push to `main`, not on pull requests) |
 | `coverage` | PHP and frontend coverage floors plus changed-code coverage | `php-test (sqlite)` and `frontend` |
 | `mutation` | Mutation testing of critical pure logic | `php-test (sqlite)` |
 | `container-acceptance` | Install, upgrade, database-wait and reverse-proxy tests against the built image (`IMAGE`, default `ricette:ci`) | `container-acceptance` |
