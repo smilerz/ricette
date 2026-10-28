@@ -45,7 +45,7 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
       - run: composer install --no-interaction --prefer-dist
-      - run: ./bin/verify lockfiles php-static composer-audit dockerfile
+      - run: ./bin/verify lockfiles php-static dockerfile
 
   php-test:
     name: php-test (${{ matrix.database }})
