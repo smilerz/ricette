@@ -112,7 +112,11 @@ jobs:
       - name: Update the next PR that has auto-merge enabled and is behind main
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          # This job has no checkout, so gh cannot infer the repository from a git remote ("not a git repository"),
+          # and the listing below came back empty without failing -- the job passed having done nothing.
+          GH_REPO: ${{ github.repository }}
         run: |
+          set -o pipefail
           gh pr list --state open --json number,headRefName,autoMergeRequest --jq \
             '.[] | select(.autoMergeRequest != null) | "\(.number) \(.headRefName)"' |
           while read -r number ref; do
