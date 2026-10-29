@@ -167,11 +167,11 @@ importers:
   .:
     dependencies:
       '@inertiajs/core':
-        specifier: ^3.7.1
-        version: 3.7.1
+        specifier: ^3.9.1
+        version: 3.9.1
       '@inertiajs/svelte':
-        specifier: ^3.7.1
-        version: 3.7.1(svelte@5.57.2(@typescript-eslint/types@8.70.1))
+        specifier: ^3.9.1
+        version: 3.9.1(svelte@5.57.2(@typescript-eslint/types@8.70.1))
       intl-messageformat:
         specifier: ^12.1.2
         version: 12.1.2
@@ -207,8 +207,8 @@ importers:
         specifier: ^10.12.0
         version: 10.12.0
       eslint-plugin-svelte:
-        specifier: ^3.23.0
-        version: 3.23.0(eslint@10.12.0)(svelte@5.57.2(@typescript-eslint/types@8.70.1))
+        specifier: ^3.23.1
+        version: 3.23.1(eslint@10.12.0)(svelte@5.57.2(@typescript-eslint/types@8.70.1))
       globals:
         specifier: ^17.12.0
         version: 17.12.0
@@ -411,16 +411,16 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@inertiajs/core@3.7.1':
-    resolution: {integrity: sha512-shFvLhu/8R0QgYxsQVR5Pj9LvCnnodUSHZtg5b9yVfd9MG75zuw43/ZBy0iYxIzmI36HkFlmM94ji49Jcx9Q4Q==}
+  '@inertiajs/core@3.9.1':
+    resolution: {integrity: sha512-ScLQZ1/KXlvmqCEJMEZABSK5updJZIli1kaG/coWXpWMmpSLsazSJkR7esITYp7X5vTgrOGNIrcRmdMp/GQ0NA==}
     peerDependencies:
       axios: ^1.15.2
     peerDependenciesMeta:
       axios:
         optional: true
 
-  '@inertiajs/svelte@3.7.1':
-    resolution: {integrity: sha512-hvcYHp8oKdY0Zrv6e3hC/aGy3FIngvdE7+i0ppZO1U/0fiOPhcEqEDZMly5MaU55KUaRICBqAp0GqccKM0vzKA==}
+  '@inertiajs/svelte@3.9.1':
+    resolution: {integrity: sha512-wNj2CkFj0rfTsF5n0ZzjDc52w9Ek96AE3wL+2KFX6iDKbD4YHPoleArkTDBiTHCDECeR6kBM82PzorspSWzq4Q==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -857,8 +857,8 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
-  eslint-plugin-svelte@3.23.0:
-    resolution: {integrity: sha512-n9jRklDqy0+W834568a4ZIZTK7DHXxvvHHxxGP8nNq7N//pOZMubttskHOquyGgfTR4Z05q2NdGNlsTpIEA48w==}
+  eslint-plugin-svelte@3.23.1:
+    resolution: {integrity: sha512-+w86Jlx4IRUuuvtqD6j4njql+akx+81JnpvbN5de3AV5iq2SexvST/Jr51CiTlKeY0i+vhoKjPO/ywFKIP75sA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^8.57.1 || ^9.0.0 || ^10.0.0
@@ -1064,8 +1064,8 @@ packages:
   known-css-properties@0.37.0:
     resolution: {integrity: sha512-JCDrsP4Z1Sb9JwG0aJ8Eo2r7k4Ou5MwmThS/6lcIe1ICyb7UBJKGRIUUdqc2ASdE/42lgz6zFUnzAIhtXnBVrQ==}
 
-  laravel-precognition@2.0.0:
-    resolution: {integrity: sha512-dmA4HGc9m+TsVNsJs9/XQBI8u6j7coilN+qKkBuhuXQzH3HypwS/c5dFQ4UqUGjBbcxIM7zdk91kM/SRZwIvWQ==}
+  laravel-precognition@2.1.1:
+    resolution: {integrity: sha512-Wg05+puJ5qiNsE8rdO5JmSiqQ2xcEf7442AIZiDhZg1JyPOePv5SSCu0fO7z7LqmJcPMxNNuOIcZd6UatEmYug==}
     peerDependencies:
       axios: ^1.4.0
     peerDependenciesMeta:
@@ -1765,17 +1765,17 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@inertiajs/core@3.7.1':
+  '@inertiajs/core@3.9.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       es-toolkit: 1.52.0
-      laravel-precognition: 2.0.0
+      laravel-precognition: 2.1.1
 
-  '@inertiajs/svelte@3.7.1(svelte@5.57.2(@typescript-eslint/types@8.70.1))':
+  '@inertiajs/svelte@3.9.1(svelte@5.57.2(@typescript-eslint/types@8.70.1))':
     dependencies:
-      '@inertiajs/core': 3.7.1
+      '@inertiajs/core': 3.9.1
       es-toolkit: 1.52.0
-      laravel-precognition: 2.0.0
+      laravel-precognition: 2.1.1
       svelte: 5.57.2(@typescript-eslint/types@8.70.1)
     transitivePeerDependencies:
       - axios
@@ -2163,7 +2163,7 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-plugin-svelte@3.23.0(eslint@10.12.0)(svelte@5.57.2(@typescript-eslint/types@8.70.1)):
+  eslint-plugin-svelte@3.23.1(eslint@10.12.0)(svelte@5.57.2(@typescript-eslint/types@8.70.1)):
     dependencies:
       '@eslint-community/eslint-utils': 4.10.1(eslint@10.12.0)
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -2390,7 +2390,7 @@ snapshots:
 
   known-css-properties@0.37.0: {}
 
-  laravel-precognition@2.0.0:
+  laravel-precognition@2.1.1:
     dependencies:
       es-toolkit: 1.52.0
 

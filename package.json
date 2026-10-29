@@ -19,7 +19,7 @@
     "@types/node": "^26.6.4",
     "@vitest/coverage-v8": "^5.0.1",
     "eslint": "^10.12.0",
-    "eslint-plugin-svelte": "^3.23.0",
+    "eslint-plugin-svelte": "^3.23.1",
     "globals": "^17.12.0",
     "jsdom": "^30.1.3",
     "laravel-vite-plugin": "^3.2.0",
@@ -33,8 +33,8 @@
     "vitest": "^5.0.1"
   },
   "dependencies": {
-    "@inertiajs/core": "^3.7.1",
-    "@inertiajs/svelte": "^3.7.1",
+    "@inertiajs/core": "^3.9.1",
+    "@inertiajs/svelte": "^3.9.1",
     "intl-messageformat": "^12.1.2"
   },
   "scripts": {
