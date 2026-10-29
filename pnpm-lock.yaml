@@ -170,8 +170,8 @@ importers:
         specifier: ^3.7.1
         version: 3.7.1
       '@inertiajs/svelte':
-        specifier: ^3.7.1
-        version: 3.7.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))
+        specifier: ^3.9.1
+        version: 3.9.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))
       intl-messageformat:
         specifier: ^12.1.2
         version: 12.1.2
@@ -416,8 +416,16 @@ packages:
       axios:
         optional: true
 
-  '@inertiajs/svelte@3.7.1':
-    resolution: {integrity: sha512-hvcYHp8oKdY0Zrv6e3hC/aGy3FIngvdE7+i0ppZO1U/0fiOPhcEqEDZMly5MaU55KUaRICBqAp0GqccKM0vzKA==}
+  '@inertiajs/core@3.9.1':
+    resolution: {integrity: sha512-ScLQZ1/KXlvmqCEJMEZABSK5updJZIli1kaG/coWXpWMmpSLsazSJkR7esITYp7X5vTgrOGNIrcRmdMp/GQ0NA==}
+    peerDependencies:
+      axios: ^1.15.2
+    peerDependenciesMeta:
+      axios:
+        optional: true
+
+  '@inertiajs/svelte@3.9.1':
+    resolution: {integrity: sha512-wNj2CkFj0rfTsF5n0ZzjDc52w9Ek96AE3wL+2KFX6iDKbD4YHPoleArkTDBiTHCDECeR6kBM82PzorspSWzq4Q==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -1063,6 +1071,14 @@ packages:
 
   laravel-precognition@2.0.0:
     resolution: {integrity: sha512-dmA4HGc9m+TsVNsJs9/XQBI8u6j7coilN+qKkBuhuXQzH3HypwS/c5dFQ4UqUGjBbcxIM7zdk91kM/SRZwIvWQ==}
+    peerDependencies:
+      axios: ^1.4.0
+    peerDependenciesMeta:
+      axios:
+        optional: true
+
+  laravel-precognition@2.1.1:
+    resolution: {integrity: sha512-Wg05+puJ5qiNsE8rdO5JmSiqQ2xcEf7442AIZiDhZg1JyPOePv5SSCu0fO7z7LqmJcPMxNNuOIcZd6UatEmYug==}
     peerDependencies:
       axios: ^1.4.0
     peerDependenciesMeta:
@@ -1760,11 +1776,17 @@ snapshots:
       es-toolkit: 1.52.0
       laravel-precognition: 2.0.0
 
-  '@inertiajs/svelte@3.7.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))':
+  '@inertiajs/core@3.9.1':
     dependencies:
-      '@inertiajs/core': 3.7.1
+      '@jridgewell/trace-mapping': 0.3.31
       es-toolkit: 1.52.0
-      laravel-precognition: 2.0.0
+      laravel-precognition: 2.1.1
+
+  '@inertiajs/svelte@3.9.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))':
+    dependencies:
+      '@inertiajs/core': 3.9.1
+      es-toolkit: 1.52.0
+      laravel-precognition: 2.1.1
       svelte: 5.57.1(@typescript-eslint/types@8.70.1)
     transitivePeerDependencies:
       - axios
@@ -2380,6 +2402,10 @@ snapshots:
   known-css-properties@0.37.0: {}
 
   laravel-precognition@2.0.0:
+    dependencies:
+      es-toolkit: 1.52.0
+
+  laravel-precognition@2.1.1:
     dependencies:
       es-toolkit: 1.52.0
 

@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@inertiajs/core": "^3.7.1",
-    "@inertiajs/svelte": "^3.7.1",
+    "@inertiajs/svelte": "^3.9.1",
     "intl-messageformat": "^12.1.2"
   },
   "scripts": {
