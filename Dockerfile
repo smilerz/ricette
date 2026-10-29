@@ -12,7 +12,7 @@ COPY public ./public
 RUN pnpm build
 
 # --- PHP dependencies --------------------------------------------------------
-FROM dunglas/frankenphp:1.13.0-php8.4 AS php-base
+FROM dunglas/frankenphp:1.13.3-php8.4 AS php-base
 # Compile only the extensions the base image does not already ship. $missing is a word list.
 # hadolint ignore=SC2086
 RUN missing=""; \
