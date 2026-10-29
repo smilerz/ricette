@@ -105,13 +105,24 @@ jobs:
         with:
           client-id: ${{ secrets.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
-      - name: Update every open PR that has auto-merge enabled and is behind main
+      # Updates ONE PR per push to main, not all of them: updating a batch at once starts CI on all of them, the first
+      # to finish merges, and the rest are behind again. Each merge is itself a push, so the queue drains serially.
+      # "Behind" is asked of the compare API, not read from mergeStateStatus: right after a merge GitHub reports every
+      # open PR as UNKNOWN while it recomputes, so filtering on BEHIND found nothing and the queue stalled.
+      - name: Update the next PR that has auto-merge enabled and is behind main
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          # This job has no checkout, so gh cannot infer the repository from a git remote ("not a git repository"),
+          # and the listing below came back empty without failing -- the job passed having done nothing.
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh pr list --state open --json number,autoMergeRequest,mergeStateStatus --jq \
-            '.[] | select(.autoMergeRequest != null and .mergeStateStatus == "BEHIND") | .number' |
-          while read -r number; do
-            echo "updating #$number"
-            gh pr update-branch "$number" || echo "::warning::could not update #$number"
+          set -o pipefail
+          gh pr list --state open --json number,headRefName,autoMergeRequest --jq \
+            '.[] | select(.autoMergeRequest != null) | "\(.number) \(.headRefName)"' |
+          while read -r number ref; do
+            behind=$(gh api "repos/{owner}/{repo}/compare/main...$ref" --jq .behind_by)
+            [ "$behind" -gt 0 ] || continue
+            echo "updating #$number ($behind behind)"
+            if gh pr update-branch "$number"; then break; fi
+            echo "::warning::could not update #$number"
           done
