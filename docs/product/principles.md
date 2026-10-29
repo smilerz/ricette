@@ -105,6 +105,19 @@ Subordinate to this principle:
   understanding or editing the food hierarchy is a tree-navigation task,
   not a search task, and gets its own direct-manipulation UI
   (`FoodTree`) rather than being routed through a command palette.
+- User-authored organization is not curation — a user's own collections
+  (opt-in grouping of recipes by their own meaning) express what the user
+  meant (principle 6) and belong in the product. What the system must
+  shoulder is upkeep of its own internals (foods, units, duplicates).
+  Neither is a top-level navigation destination for its own sake.
+- Behavior belongs to the shared component, lists give it context — a
+  capability of a recipe summary (quick preview, readiness marker,
+  density) is owned by the shared summary component so it behaves the
+  same everywhere. A list supplies context and may opt out explicitly
+  where the gesture already means something else (a draggable plan
+  slot); it does not re-implement the behavior or pass per-view flags.
+- Anything a gesture opens must also be reachable without one, and is
+  never hidden behind a list the user can trim.
 - Power is additive — a novice operates by obvious clicking/tapping; an
   experienced user gradually discovers keyboard shortcuts, drag/drop,
   multiselect, bulk actions, and a command palette. Every power-user
@@ -136,6 +149,12 @@ Subordinate to this principle:
   can see what happened and correct it at the moment it happens — not
   buried in a settings page. Automation without inspectability becomes
   distrust.
+- Readiness answers must be honest about unknowns — a derived yes/no
+  (for example "can cook now") has three states: yes, no, and unknown
+  where the underlying data is absent. Unknown is never shown as no. A
+  listed substitute that is on hand satisfies an ingredient and says so;
+  a missing optional ingredient never counts against the answer and is
+  shown separately.
 - Smart defaults should eliminate decisions, not conceal them. Infer
   household, meal slot, serving count, last-used unit, preferred store
   when confidence is high — but make the assumption visible and easy to
