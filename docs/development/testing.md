@@ -66,3 +66,13 @@ Critical decision paths should approach complete meaningful coverage. Examples: 
 Use selective mutation testing for critical pure logic. Likely targets: units, quantities, entitlement rules, permission predicates, hierarchy invariants, billing state transitions.
 
 Mutation testing is particularly valuable in an AI-heavy environment because superficially impressive tests may simply encode the implementation.
+
+## Test Quality Practices
+
+Tests exist to catch wrong behavior, not to show that code ran.
+
+- **Test the effect, not the forwarding.** A prop or flag that is declared but never used passes a test that only checks the value was passed. Assert what the user or the caller observes.
+- **Give every negative assertion a positive control.** "X is not shown" proves nothing unless the same test shows X appears when it should. Assert the real outcome (the router navigated, the request was sent), not a framework side effect.
+- **Test the whole chain once.** Exercise the real client with only the network mocked, and assert what goes on the wire, so a bug between the component and the request cannot hide behind mocks.
+- **Use realistic data.** Long names, many items and non-Latin text expose layout and truncation problems that short fake data hides. When a screenshot is part of the check, read it; a full-page capture can hide the viewport problem.
+- **Label tests honestly.** Say whether a test was written first for new behavior or is regression coverage of existing behavior. A bug fix still needs a test that fails before the fix.
