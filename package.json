@@ -35,7 +35,7 @@
   "dependencies": {
     "@inertiajs/core": "^3.9.1",
     "@inertiajs/svelte": "^3.9.1",
-    "intl-messageformat": "^12.1.2"
+    "intl-messageformat": "^12.1.4"
   },
   "scripts": {
     "build": "vite build",
