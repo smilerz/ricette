@@ -14,6 +14,7 @@ Guidance for Svelte and Inertia code. It refines ADR-0003 and ADR-0004 and does 
 - **One owner per dialog.** Whatever triggers it emits an event; the owner opens it.
 - **One shared component for each view of a thing.** A recipe summary is one component used by every list and preview, so a fix reaches all of them. Views declare their density instead of receiving a flag per call.
 - **Expensive per-row answers are opt-in and scoped to the visible page**, with three states: unknown (null), yes, no. Do not cache without an invalidation plan.
+- **Load data for always-mounted UI on first open, once.** Anything mounted on every page (a drawer, a menu) must not fetch while closed; fetch when first opened and reuse the result.
 - **Separate refresh from new search.** A refresh keeps the selection and scroll position.
 
 ## Interaction

@@ -76,3 +76,5 @@ Tests exist to catch wrong behavior, not to show that code ran.
 - **Test the whole chain once.** Exercise the real client with only the network mocked, and assert what goes on the wire, so a bug between the component and the request cannot hide behind mocks.
 - **Use realistic data.** Long names, many items and non-Latin text expose layout and truncation problems that short fake data hides. When a screenshot is part of the check, read it; a full-page capture can hide the viewport problem.
 - **Label tests honestly.** Say whether a test was written first for new behavior or is regression coverage of existing behavior. A bug fix still needs a test that fails before the fix.
+- **Believe a result only after seeing it fail first**, then pass for the reason you expect. A real browser check beats a diagnosis from reading code.
+- **Check that what you are looking at is what you changed.** A stale service worker, cached assets, or a server started in the wrong mode produce false "it did not work" results. Confirm the served build is the current one before concluding anything.
