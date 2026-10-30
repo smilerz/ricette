@@ -29,6 +29,8 @@ question people actually ask ("what can we make tonight?") is not answerable fro
 - Household isolation applies: the result reflects only the viewing household's pantry (AGENTS.md security rules; needs the
   same-household, cross-household, ID-guessing and shared-link tests).
 - Readiness reflects pantry and recipe changes promptly, with no manual refresh.
+- The marker reads at a glance in a grid: a small icon plus a thin outline around the picture, with no text needed. Color
+  alone never carries the state, and it has an accessible text equivalent (accessibility section).
 
 ### Alternatives you considered
 
@@ -52,6 +54,8 @@ Judging whether a recipe is the one you meant means opening it, losing your plac
   position or selection.
 - Reachable by every input route: touch, mouse, keyboard, and a visible menu item. A gesture is never the only way in
   (accessibility section; principle 3).
+- Press-and-hold (touch and mouse) opens it, and a "Preview" item is always in the card's menu, for discoverability and
+  for devices without long press.
 - The preview shows the same recipe summary as everywhere else, in a compact density (see proposal 4).
 - Closing it returns exactly to where the user was.
 
@@ -99,6 +103,8 @@ Ingredient notes and similar detail belong on the recipe page but clutter compac
 - The same recipe summary looks and behaves the same in every view; a fix or change to it shows up everywhere (principle 4:
   consistency lives in shared semantics and components).
 - Authored text is never altered by density; compact only hides, never rewrites (principle 6).
+- Overlays on a card (rating, cook time, readiness, a "new" badge) each have a fixed corner, the same on every card.
+  Anything on a corner makes room for page-level controls such as a selection checkbox.
 
 ### Alternatives you considered
 
@@ -122,3 +128,27 @@ Moving through a collection one recipe at a time requires going back to the list
 ### Alternatives you considered
 
 - Swipe only: violates the rule that gestures are never the only route.
+
+---
+
+## 6. Display settings with a live sample
+
+### The problem
+
+Display options for recipe cards (which details and overlays show, and how many keywords) are abstract switches. A user
+cannot tell what a switch does until they leave the settings and look at a real list.
+
+### What you would like
+
+- Each group of display switches sits next to one real recipe card that updates as the switches change (principle 1:
+  immediate feedback; principle 3: the effect is visible where it is chosen).
+- Show it wherever the switches appear, not only on the settings page.
+- The sample always demonstrates every option that is on. Where the user's real sample recipe lacks something (for
+  example fewer keywords than the chosen count), the sample is padded with clearly sample content and keeps the real
+  content that exists, so it never shows less than the setting promises.
+
+### Alternatives you considered
+
+- A static description or screenshot: goes stale as options change.
+- Open question: where display options live (per device, per account, per household). See the open decisions in
+  `docs/product/principles.md`.

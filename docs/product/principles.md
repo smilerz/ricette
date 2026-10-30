@@ -304,3 +304,9 @@ discussion, not the six principles above:
   confirmation-free action (a candidate: multi-step recipe import
   review, where the user is confirming Ricette's *interpretation* of
   imported content, not merely restating their own selection).
+- Where display options live — per device (purely visual, such as which
+  overlays a card shows), per account, or per household — and which
+  options are cheap to keep always on versus an expensive server-side
+  computation that stays opt-in. This sets what is persisted and what a
+  second device sees, so it is a maintainer decision (ADR-0027), not an
+  implementation detail.
