@@ -167,11 +167,11 @@ importers:
   .:
     dependencies:
       '@inertiajs/core':
-        specifier: ^3.9.1
-        version: 3.9.1
+        specifier: ^3.10.0
+        version: 3.10.0
       '@inertiajs/svelte':
-        specifier: ^3.9.1
-        version: 3.9.1(svelte@5.57.3(@typescript-eslint/types@8.70.1))
+        specifier: ^3.10.0
+        version: 3.10.0(svelte@5.57.3(@typescript-eslint/types@8.70.1))
       intl-messageformat:
         specifier: ^12.1.2
         version: 12.1.4
@@ -408,16 +408,16 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@inertiajs/core@3.9.1':
-    resolution: {integrity: sha512-ScLQZ1/KXlvmqCEJMEZABSK5updJZIli1kaG/coWXpWMmpSLsazSJkR7esITYp7X5vTgrOGNIrcRmdMp/GQ0NA==}
+  '@inertiajs/core@3.10.0':
+    resolution: {integrity: sha512-bkPajs5v45v/udXoJhI9N+JtG2qoPNzSBbt67+nyAqX1qiyp/aTT4jAN3/AQS4wkf6AQp211Dl4rVaxe9vw/+g==}
     peerDependencies:
       axios: ^1.15.2
     peerDependenciesMeta:
       axios:
         optional: true
 
-  '@inertiajs/svelte@3.9.1':
-    resolution: {integrity: sha512-wNj2CkFj0rfTsF5n0ZzjDc52w9Ek96AE3wL+2KFX6iDKbD4YHPoleArkTDBiTHCDECeR6kBM82PzorspSWzq4Q==}
+  '@inertiajs/svelte@3.10.0':
+    resolution: {integrity: sha512-SPF7CU3KwBuylnxEjOMVMCC2KtnH00i0y1p6Jhua8K8Hwx6EJ1C65/F67SoiYp9ZyOdBr9SbnWBlb17GurMtIw==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -1771,15 +1771,15 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@inertiajs/core@3.9.1':
+  '@inertiajs/core@3.10.0':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       es-toolkit: 1.52.0
       laravel-precognition: 2.1.1
 
-  '@inertiajs/svelte@3.9.1(svelte@5.57.3(@typescript-eslint/types@8.70.1))':
+  '@inertiajs/svelte@3.10.0(svelte@5.57.3(@typescript-eslint/types@8.70.1))':
     dependencies:
-      '@inertiajs/core': 3.9.1
+      '@inertiajs/core': 3.10.0
       es-toolkit: 1.52.0
       laravel-precognition: 2.1.1
       svelte: 5.57.3(@typescript-eslint/types@8.70.1)
